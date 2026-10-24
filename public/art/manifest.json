@@ -1,0 +1,400 @@
+{
+ "kid": {
+  "size": [
+   490,
+   740
+  ],
+  "hair": [
+   "bob",
+   "braids",
+   "bun",
+   "curly",
+   "long",
+   "pigtails",
+   "ponytail",
+   "short",
+   "spiky",
+   "wavy"
+  ],
+  "items": [
+   {
+    "id": "hat-1",
+    "cat": "hat",
+    "name": "Red cap"
+   },
+   {
+    "id": "top-1",
+    "cat": "top",
+    "name": "Yellow t-shirt"
+   },
+   {
+    "id": "bottoms-1",
+    "cat": "bottoms",
+    "name": "Green shorts"
+   },
+   {
+    "id": "shoes-1",
+    "cat": "shoes",
+    "name": "Red trainers"
+   },
+   {
+    "id": "hat-2",
+    "cat": "hat",
+    "name": "Gold crown"
+   },
+   {
+    "id": "top-2",
+    "cat": "top",
+    "name": "Star t-shirt"
+   },
+   {
+    "id": "bottoms-2",
+    "cat": "bottoms",
+    "name": "Pink tutu"
+   },
+   {
+    "id": "shoes-2",
+    "cat": "shoes",
+    "name": "Green wellies"
+   },
+   {
+    "id": "headband-3",
+    "cat": "headband",
+    "name": "Pink bow"
+   },
+   {
+    "id": "top-3",
+    "cat": "top",
+    "name": "Heart t-shirt"
+   },
+   {
+    "id": "bottoms-3",
+    "cat": "bottoms",
+    "name": "Purple skirt"
+   },
+   {
+    "id": "shoes-3",
+    "cat": "shoes",
+    "name": "Pink shoes"
+   },
+   {
+    "id": "glasses-3",
+    "cat": "glasses",
+    "name": "Red glasses"
+   },
+   {
+    "id": "hat-4",
+    "cat": "hat",
+    "name": "Bobble hat"
+   },
+   {
+    "id": "top-4",
+    "cat": "top",
+    "name": "Stripy jumper"
+   },
+   {
+    "id": "bottoms-4",
+    "cat": "bottoms",
+    "name": "Jeans"
+   },
+   {
+    "id": "shoes-4",
+    "cat": "shoes",
+    "name": "Brown boots"
+   },
+   {
+    "id": "hat-5",
+    "cat": "hat",
+    "name": "Sun hat"
+   },
+   {
+    "id": "top-5",
+    "cat": "top",
+    "name": "Dino dungarees top"
+   },
+   {
+    "id": "bottoms-5",
+    "cat": "bottoms",
+    "name": "Denim shorts"
+   },
+   {
+    "id": "shoes-5",
+    "cat": "shoes",
+    "name": "Sandals"
+   },
+   {
+    "id": "headband-6",
+    "cat": "headband",
+    "name": "Flower crown"
+   },
+   {
+    "id": "top-6",
+    "cat": "top",
+    "name": "Rainbow t-shirt"
+   },
+   {
+    "id": "bottoms-6",
+    "cat": "bottoms",
+    "name": "Rainbow leggings"
+   },
+   {
+    "id": "shoes-6",
+    "cat": "shoes",
+    "name": "Sparkly shoes"
+   },
+   {
+    "id": "glasses-6",
+    "cat": "glasses",
+    "name": "Star sunglasses"
+   },
+   {
+    "id": "hat-7",
+    "cat": "hat",
+    "name": "Party hat"
+   },
+   {
+    "id": "top-7",
+    "cat": "top",
+    "name": "Spotty t-shirt"
+   },
+   {
+    "id": "bottoms-7",
+    "cat": "bottoms",
+    "name": "Joggers"
+   },
+   {
+    "id": "shoes-7",
+    "cat": "shoes",
+    "name": "Blue trainers"
+   },
+   {
+    "id": "headband-8",
+    "cat": "headband",
+    "name": "Cat ears"
+   },
+   {
+    "id": "top-8",
+    "cat": "top",
+    "name": "Lilac hoodie"
+   },
+   {
+    "id": "bottoms-8",
+    "cat": "bottoms",
+    "name": "Pink leggings"
+   },
+   {
+    "id": "shoes-8",
+    "cat": "shoes",
+    "name": "White trainers"
+   },
+   {
+    "id": "glasses-8",
+    "cat": "glasses",
+    "name": "Blue glasses"
+   },
+   {
+    "id": "hat-9",
+    "cat": "hat",
+    "name": "Pirate hat"
+   },
+   {
+    "id": "top-9",
+    "cat": "top",
+    "name": "Sailor top"
+   },
+   {
+    "id": "bottoms-9",
+    "cat": "bottoms",
+    "name": "Black trousers"
+   },
+   {
+    "id": "shoes-9",
+    "cat": "shoes",
+    "name": "Black boots"
+   },
+   {
+    "id": "headband-10",
+    "cat": "headband",
+    "name": "Unicorn horn"
+   },
+   {
+    "id": "top-10",
+    "cat": "top",
+    "name": "Fluffy cardigan"
+   },
+   {
+    "id": "bottoms-10",
+    "cat": "bottoms",
+    "name": "Yellow skirt"
+   },
+   {
+    "id": "shoes-10",
+    "cat": "shoes",
+    "name": "Gold shoes"
+   },
+   {
+    "id": "extra-wings",
+    "cat": "extra",
+    "name": "Fairy wings",
+    "z": "back"
+   },
+   {
+    "id": "extra-cape",
+    "cat": "extra",
+    "name": "Super cape",
+    "z": "back"
+   },
+   {
+    "id": "extra-necklace",
+    "cat": "extra",
+    "name": "Bead necklace",
+    "z": "front"
+   },
+   {
+    "id": "extra-backpack",
+    "cat": "extra",
+    "name": "Backpack",
+    "z": "front"
+   }
+  ]
+ },
+ "baby": {
+  "size": [
+   620,
+   768
+  ],
+  "hair": [
+   "curls",
+   "sprout",
+   "wisps"
+  ],
+  "items": [
+   {
+    "id": "head-1",
+    "cat": "head",
+    "name": "Bonnet"
+   },
+   {
+    "id": "suit-1",
+    "cat": "suit",
+    "name": "Duck bodysuit"
+   },
+   {
+    "id": "head-2",
+    "cat": "head",
+    "name": "Bobble hat"
+   },
+   {
+    "id": "suit-2",
+    "cat": "suit",
+    "name": "Stripy bodysuit"
+   },
+   {
+    "id": "head-3",
+    "cat": "head",
+    "name": "Pink bow"
+   },
+   {
+    "id": "suit-3",
+    "cat": "suit",
+    "name": "Spotty bodysuit"
+   },
+   {
+    "id": "head-4",
+    "cat": "head",
+    "name": "Daisy headband"
+   },
+   {
+    "id": "suit-4",
+    "cat": "suit",
+    "name": "Dino bodysuit"
+   },
+   {
+    "id": "dummy-pink",
+    "cat": "dummy",
+    "name": "Pink dummy"
+   },
+   {
+    "id": "dummy-blue",
+    "cat": "dummy",
+    "name": "Blue dummy"
+   },
+   {
+    "id": "dummy-yellow",
+    "cat": "dummy",
+    "name": "Yellow dummy"
+   },
+   {
+    "id": "dummy-green",
+    "cat": "dummy",
+    "name": "Green dummy"
+   },
+   {
+    "id": "dummy-purple",
+    "cat": "dummy",
+    "name": "Purple dummy"
+   }
+  ]
+ },
+ "adult": {
+  "size": [
+   500,
+   768
+  ],
+  "hair": [
+   "bob",
+   "braids",
+   "bun",
+   "curly",
+   "long",
+   "ponytail"
+  ],
+  "items": [
+   {
+    "id": "head-1",
+    "cat": "head",
+    "name": "Pink bow"
+   },
+   {
+    "id": "outfit-1",
+    "cat": "outfit",
+    "name": "Pink dress"
+   },
+   {
+    "id": "head-2",
+    "cat": "head",
+    "name": "Sun hat"
+   },
+   {
+    "id": "outfit-2",
+    "cat": "outfit",
+    "name": "Sundress"
+   },
+   {
+    "id": "head-3",
+    "cat": "head",
+    "name": "Spotty headband"
+   },
+   {
+    "id": "outfit-3",
+    "cat": "outfit",
+    "name": "Dungarees"
+   },
+   {
+    "id": "outfit-4",
+    "cat": "outfit",
+    "name": "Jumper dress"
+   },
+   {
+    "id": "head-5",
+    "cat": "head",
+    "name": "Tiara"
+   },
+   {
+    "id": "outfit-5",
+    "cat": "outfit",
+    "name": "Party dress"
+   }
+  ]
+ }
+}

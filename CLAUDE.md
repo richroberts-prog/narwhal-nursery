@@ -15,7 +15,11 @@ browser. Agreed design: `docs/design.md`.
 
 - `src/game/`: pure rules, no DOM. `catalog.ts` lists (clothes, activities, helpers, names), `world.ts` the lasting
   nursery and how it grows, `day.ts` one day (clock, needs, desk queue, helpers), `talk.ts` parent lines, `save.ts`.
-- `src/ui/`: `people.ts` draws people in SVG, `room.ts` the two floors, `sound.ts` Web Audio music and sounds.
+- `src/game/looks.ts`: dolls (baby, kid, adult), hairstyles, hair colours, skin tones and clothes, from `public/art/manifest.json`.
+- `src/ui/`: `dolls.ts` stacks picture layers into people, `room.ts` the painted floors' tap zones, beds and front pieces, `sound.ts` Web Audio.
+- `art/`: the picture pipeline. `gen.py` paints with OpenRouter (Gemini image, about $0.07 a picture: money, so ask first);
+  `build.py` turns painted dolls and their edits into layers (`public/art/{kid,baby,adult}`); `rooms.py` builds rooms,
+  front pieces and sticker sheets. Raw paintings live in `art/src` (not in git); the built layers in `public/art` are.
 - `src/main.ts`: start screen, room, chats, wardrobe, have-a-child, end of day.
 
 ## Rules
@@ -25,4 +29,5 @@ browser. Agreed design: `docs/design.md`.
 - Each floor has z-index 0 so furniture layering stays under the people layer; only drawn shapes take taps, so every child can be tapped (a test checks both
   floors); Emily lives in the desk layer to stay behind it.
 - Inputs must allow text selection or the iPad keyboard won't open.
+- Short class names clash across screens (`.wardrobe`, `.done`): tap zones use `st-`, wish states `wish-`.
 - Saves are versioned (`World.v`); an old version is ignored, not migrated.

@@ -30,7 +30,31 @@ export type DayKid = {
   hearts: number; m: Record<Meter, number>; did: Act[];
   sleepUntil: number; floorNap: boolean; busyUntil: number; laughUntil: number; crying: boolean; cryLossAt: number; nextMoveAt: number;
 };
-export type DayState = { day: number; t: number; fams: DayFam[]; kids: DayKid[]; queue: number[]; next: Record<string, number> };
+/** Today's three wishes: small goals for the player; each one done unlocks a piece of clothing. */
+export type Wish = { kind: 'favourite' | 'laughs' | 'act' | 'happyHome'; text: string; target: number; got: number; kid?: number; act?: Act };
+export type DayState = { day: number; t: number; fams: DayFam[]; kids: DayKid[]; queue: number[]; next: Record<string, number>; wishes: Wish[] };
+
+const WISH_ACTS: [Act, (n: number) => string][] = [
+  ['nap', (n) => `Put ${n} children down for a nap`], ['story', (n) => `Read ${n} stories`], ['painting', (n) => `Paint ${n} pictures`],
+  ['snack', (n) => `Give out ${n} snacks`], ['outside', (n) => `Play outside ${n} times`], ['song', (n) => `Sing ${n} songs`],
+  ['bottle', (n) => `Give ${n} bottles`], ['cuddle', (n) => `Give ${n} cuddles`],
+];
+
+function makeWishes(w: World, rng: Rng): Wish[] {
+  const kids = w.children.filter((c) => c.fam !== OWN || c.age < GROWN_UP);
+  const c = pick(rng, kids);
+  const fav = favourite(c.pers, c.age);
+  const ages = new Set(kids.map((k) => k.age));
+  // Only ask for things today's children can do.
+  const acts = WISH_ACTS.filter(([a]) => [...ages].some((age) => allowed(age).includes(a)));
+  const [act, say] = pick(rng, acts);
+  const n = 2 + Math.floor(rng() * 2);
+  return [
+    { kind: 'favourite', text: `Give ${c.name} ${ACTS[fav].want.replace(/^to /, 'time to ')}`, target: 1, got: 0, kid: c.id, act: fav },
+    rng() < 0.5 ? { kind: 'laughs', text: 'Make 5 children laugh', target: 5, got: 0 } : { kind: 'happyHome', text: 'Send 3 children home with full hearts', target: 3, got: 0 },
+    { kind: 'act', text: say(n), target: n, got: 0, act },
+  ];
+}
 export type Event =
   | { type: 'arrive'; fam: number }
   | { type: 'pickup'; fam: number }
@@ -38,7 +62,7 @@ export type Event =
   | { type: 'selfplay'; kid: number; act: Act }
   | { type: 'wander' | 'doze' | 'startCry'; kid: number }
   | { type: 'chat'; kid: number; with: number };
-export type ActResult = { ok: false; why: 'asleep' | 'tooLittle' | 'tooBig' } | { ok: true; matched: boolean; fav: boolean };
+export type ActResult = { ok: false; why: 'asleep' | 'tooLittle' | 'tooBig' } | { ok: true; matched: boolean; fav: boolean; wishes: Wish[] };
 export type Mood = 'asleep' | 'laugh' | 'cry' | 'want' | 'happy';
 
 const between = (rng: Rng, a: number, b: number) => a + Math.floor(rng() * (b - a + 1));
@@ -71,7 +95,7 @@ export function newDay(w: World, rng: Rng = Math.random): DayState {
     arrive: w.day === 1 ? OPEN : pick(rng, [480, 480, 480, 540, 600]),
     leave: w.day === 1 ? [960, 1020][i % 2] : pick(rng, [840, 900, 960, 1020, 1020]),
   }));
-  return { day: w.day, t: OPEN, fams, kids: w.children.map(dayKid), queue: [], next: { emily: OPEN + 30 } };
+  return { day: w.day, t: OPEN, fams, kids: w.children.map(dayKid), queue: [], next: { emily: OPEN + 30 }, wishes: makeWishes(w, rng) };
 }
 
 export class Day {
@@ -240,7 +264,21 @@ export class Day {
     if (act === 'play') { if (c.age < minAge) return { ok: false, why: 'tooLittle' }; }
     else if (!allowed(c.age).includes(act)) return { ok: false, why: allowed(4).includes(act) && c.age < 3 ? 'tooLittle' : 'tooBig' };
     const matched = k.m[METER_OF[act]] >= 50;
-    return { ok: true, matched, fav: this.meet(k, act, matched) };
+    const fav = this.meet(k, act, matched);
+    const wishes = this.wishProgress((w) =>
+      (w.kind === 'favourite' && w.kid === kidId && w.act === act) || (w.kind === 'laughs' && matched) || (w.kind === 'act' && w.act === act));
+    return { ok: true, matched, fav, wishes };
+  }
+
+  /** Count progress on the wishes that `hit` matches; returns the ones just finished. */
+  private wishProgress(hit: (w: Wish) => boolean): Wish[] {
+    const done: Wish[] = [];
+    for (const w of this.s.wishes) {
+      if (w.got >= w.target || !hit(w)) continue;
+      w.got++;
+      if (w.got === w.target) done.push(w);
+    }
+    return done;
   }
 
   dropOff(famId: number) {
@@ -259,8 +297,9 @@ export class Day {
     if (f.leave <= this.s.t) { f.state = 'pick'; this.s.queue.push(famId); }
   }
 
-  /** Home time. The family remembers how the day went, for tomorrow's chat. */
-  pickUp(famId: number) {
+  /** Home time. The family remembers how the day went, for tomorrow's chat. Returns wishes this finished. */
+  pickUp(famId: number): Wish[] {
+    let wishes: Wish[] = [];
     this.s.queue = this.s.queue.filter((id) => id !== famId);
     this.fam(famId).state = 'gone';
     const fam = this.w.families.find((x) => x.id === famId)!;
@@ -271,7 +310,9 @@ export class Day {
       k.here = false;
       k.sleepUntil = 0;
       k.busyUntil = 0;
+      if (k.hearts >= 4.5) wishes = wishes.concat(this.wishProgress((w) => w.kind === 'happyHome'));
     }
+    return wishes;
   }
 
   /** ⏩ jumps to the next half hour, but only once everyone at the desk for drop-off has been greeted. */

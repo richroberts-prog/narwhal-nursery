@@ -1,66 +1,4 @@
-// Clothes, activities, helpers, furniture and names: the fixed lists the game draws from.
-
-export type Cat = 'hat' | 'headband' | 'dummy' | 'top' | 'bottoms' | 'shoes';
-export const CATS: Cat[] = ['hat', 'headband', 'dummy', 'top', 'bottoms', 'shoes'];
-export const CAT_LABEL: Record<Cat, string> = { hat: 'Hats', headband: 'Headbands', dummy: 'Dummies', top: 'Tops', bottoms: 'Bottoms', shoes: 'Shoes' };
-
-export type Pat = 'stripes' | 'dots' | 'rainbow' | 'stars' | 'sparkle' | 'lights';
-export type Item = { id: string; cat: Cat; name: string; kind: string; c: string; c2?: string; pat?: Pat };
-
-type Row = [name: string, kind: string, c: string, c2?: string, pat?: Pat];
-const rows = (cat: Cat, list: Row[]): Item[] => list.map(([name, kind, c, c2, pat], i) => ({ id: `${cat}${i}`, cat, name, kind, c, c2, pat }));
-
-// Per category: 0-5 from day 1, 6-11 unlock one a day, 12-14 only come as a reward.
-export const ITEMS: Record<Cat, Item[]> = {
-  hat: rows('hat', [
-    ['No hat', 'none', ''], ['Pink beanie', 'beanie', '#f7a8c4'], ['Blue beanie', 'beanie', '#8ec5f0'], ['Sun hat', 'sunhat', '#f9dc6b'],
-    ['Red cap', 'cap', '#ef6f6c'], ['Bonnet', 'bonnet', '#ffffff', '#ffb3c8'],
-    ['Party hat', 'party', '#b69cf0', '#ffe066'], ['Crown', 'crown', '#f5c542'], ['Bunny hat', 'bunny', '#f3eef8', '#ffb3c8'],
-    ['Cowboy hat', 'cowboy', '#b9835a'], ['Flower crown', 'flowers', '#ff9ecf', '#ffe066'], ['Wizard hat', 'wizard', '#5a6ee0', '#ffe066'],
-    ['Silver crown', 'crown', '#d5dbe6'], ['Pink cowboy hat', 'cowboy', '#f7a8c4'], ['Mint wizard hat', 'wizard', '#7fd6b5', '#ffffff'],
-  ]),
-  headband: rows('headband', [
-    ['No headband', 'none', ''], ['Pink bow', 'bow', '#ff8fb8'], ['Red bow', 'bow', '#e94f4f'], ['Flower band', 'flower', '#ffd84d', '#ff9ecf'],
-    ['Star band', 'star', '#ffd84d', '#6aa7e8'], ['Purple band', 'plain', '#a77de8'],
-    ['Unicorn horn', 'unicorn', '#fff2a8', '#ffb3e0'], ['Cat ears', 'cat', '#555555', '#ffb3c8'], ['Rainbow band', 'rainbow', '#ff6b6b'],
-    ['Heart band', 'heart', '#ff5d8f', '#ffb3c8'], ['Sparkle band', 'sparkle', '#c9a7ff', '#ffffff'], ['Butterfly band', 'butterfly', '#7ec8ff', '#ffd84d'],
-    ['Gold bow', 'bow', '#f5c542'], ['Bunny ears', 'bunnyears', '#ffffff', '#ffb3c8'], ['Blue flower band', 'flower', '#8ec5f0', '#ffffff'],
-  ]),
-  dummy: rows('dummy', [
-    ['No dummy', 'none', ''], ['Pink dummy', 'plain', '#ff8fb8'], ['Blue dummy', 'plain', '#6fb6ff'], ['Yellow dummy', 'plain', '#ffd84d'],
-    ['Green dummy', 'plain', '#6fd39b'], ['Purple dummy', 'plain', '#b48cf0'],
-    ['Star dummy', 'star', '#6aa7e8', '#ffd84d'], ['Heart dummy', 'heart', '#ffffff', '#ff5d8f'], ['Rainbow dummy', 'plain', '#ff6b6b', undefined, 'rainbow'],
-    ['Gold dummy', 'plain', '#f5c542'], ['Mint dummy', 'plain', '#8fe3cf'], ['Panda dummy', 'panda', '#ffffff', '#333333'],
-    ['Glitter dummy', 'star', '#ff8fb8', '#ffffff'], ['Orange dummy', 'plain', '#ffa552'], ['Sky dummy', 'heart', '#8ec5f0', '#ffffff'],
-  ]),
-  top: rows('top', [
-    ['Pink top', 'tee', '#f7a8c4'], ['Blue top', 'tee', '#8ec5f0'], ['Yellow top', 'tee', '#f9dc6b'], ['Green top', 'tee', '#8fd6a0'],
-    ['Stripy top', 'tee', '#ffffff', '#3d5a99', 'stripes'], ['Spotty top', 'tee', '#ef6f6c', '#ffffff', 'dots'],
-    ['Rainbow top', 'tee', '#ff6b6b', undefined, 'rainbow'], ['Star top', 'star', '#3d5a99', '#ffd84d'], ['Dino top', 'dino', '#8fd6a0', '#3f9a5a'],
-    ['Heart top', 'heart', '#ffffff', '#ff5d8f'], ['Purple stripes', 'tee', '#c9a7ff', '#ffffff', 'stripes'], ['Orange top', 'tee', '#ffa552'],
-    ['Gold star top', 'star', '#ffffff', '#f5c542'], ['Mint spotty top', 'tee', '#8fe3cf', '#ffffff', 'dots'], ['Red stripes', 'tee', '#ffffff', '#e94f4f', 'stripes'],
-  ]),
-  bottoms: rows('bottoms', [
-    ['Blue trousers', 'trousers', '#5b8fd6'], ['Pink skirt', 'skirt', '#f7a8c4'], ['Green shorts', 'shorts', '#6fbf73'], ['Yellow skirt', 'skirt', '#f9dc6b'],
-    ['Jeans', 'trousers', '#4a6fa5'], ['Grey trousers', 'trousers', '#9aa3ad'],
-    ['Tutu', 'tutu', '#ffc2e0'], ['Rainbow leggings', 'trousers', '#ff6b6b', undefined, 'rainbow'], ['Red shorts', 'shorts', '#e94f4f'],
-    ['Purple skirt', 'skirt', '#b48cf0'], ['Star trousers', 'trousers', '#3d5a99', '#ffd84d', 'stars'], ['Spotty skirt', 'skirt', '#ef6f6c', '#ffffff', 'dots'],
-    ['Gold tutu', 'tutu', '#f5c542'], ['Mint shorts', 'shorts', '#8fe3cf'], ['Stripy trousers', 'trousers', '#ffffff', '#ef6f6c', 'stripes'],
-  ]),
-  shoes: rows('shoes', [
-    ['White shoes', 'shoe', '#ffffff'], ['Pink shoes', 'shoe', '#ff8fb8'], ['Blue shoes', 'shoe', '#6fb6ff'], ['Red shoes', 'shoe', '#e94f4f'],
-    ['Yellow shoes', 'shoe', '#ffd84d'], ['Black shoes', 'shoe', '#333333'],
-    ['Sparkly shoes', 'shoe', '#d5dbe6', '#ffffff', 'sparkle'], ['Green wellies', 'wellies', '#4cc38a'], ['Light-up shoes', 'shoe', '#6fb6ff', '#ffe066', 'lights'],
-    ['Gold shoes', 'shoe', '#f5c542'], ['Rainbow shoes', 'shoe', '#ff6b6b', undefined, 'rainbow'], ['Bunny slippers', 'slippers', '#ffffff', '#ffb3c8'],
-    ['Pink wellies', 'wellies', '#ff8fb8'], ['Purple sparkly shoes', 'shoe', '#b48cf0', '#ffffff', 'sparkle'], ['Yellow wellies', 'wellies', '#ffd84d'],
-  ]),
-};
-export const ITEM: Record<string, Item> = Object.fromEntries(CATS.flatMap((c) => ITEMS[c]).map((i) => [i.id, i]));
-
-export const STARTER: string[] = CATS.flatMap((c) => ITEMS[c].slice(0, 6).map((i) => i.id));
-/** One a day per category in turn: day 2 gets a hat, a headband and a dummy; day 3 a top, bottoms and shoes. */
-export const DAILY: string[] = [6, 7, 8, 9, 10, 11].flatMap((n) => CATS.map((c) => `${c}${n}`));
-export const SPECIAL: string[] = [12, 13, 14].flatMap((n) => CATS.map((c) => `${c}${n}`));
+// Activities, personalities, helpers, furniture and names: the fixed lists the game draws from. Clothes are in looks.ts.
 
 export type Act = 'bottle' | 'nappy' | 'nap' | 'cuddle' | 'snack' | 'blocks' | 'song' | 'painting' | 'dressup' | 'story' | 'outside' | 'potty' | 'play';
 export type Floor = 'down' | 'up';
@@ -130,6 +68,3 @@ export const NAMES = [
   'Jack', 'Daisy', 'Harry', 'Evie', 'Teddy', 'Ruby', 'George', 'Willow', 'Finn', 'Maisie', 'Archie', 'Florence', 'Sam', 'Ivy',
   'Louie', 'Olivia', 'Albie', 'Sophie', 'Ezra', 'Millie', 'Reggie', 'Bella', 'Zak', 'Hana', 'Kai', 'Amara', 'Ollie', 'Nia',
 ];
-export const SKINS = ['#ffe3cc', '#f6cfa9', '#e6b48a', '#c98d63', '#9a6540', '#6b4329'];
-export const HAIR_COLOURS = ['#3b2a20', '#6b4226', '#a0522d', '#e8c170', '#1d1d1d', '#c96a3b', '#f2dc9b'];
-export const KID_HAIR = ['short', 'long', 'pigtails', 'curly', 'bun'];

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { ACTS, DAILY, ITEM, MAX_CHILDREN, PERSONALITIES, Personality, STARTER, allowed, favourite } from '../src/game/catalog';
+import { ACTS, MAX_CHILDREN, PERSONALITIES, Personality, allowed, favourite } from '../src/game/catalog';
+import { HAIR, ITEM, ITEMS, NEEDED, SLOTS, STARTER, kindOf } from '../src/game/looks';
 import { CLOSE, Day, METERS, METER_OF, OPEN, SPEED, clock, newDay } from '../src/game/day';
 import { KEY, load, save, wipe } from '../src/game/save';
 import { heartsLine, hello, tip } from '../src/game/talk';
-import { GROWN_UP, World, earnsReward, haveChild, newWorld, nextDay, nursery, ownChild, rewardChoices, showsDummy, takeReward } from '../src/game/world';
+import { GROWN_UP, World, earnsReward, haveChild, newWorld, nextDay, nursery, ownChild, rewardChoices, takeReward } from '../src/game/world';
 
 function seeded(seed: number) {
   return () => {
@@ -34,7 +35,7 @@ describe('personalities', () => {
       const fav = favourite(p, age);
       expect(allowed(age)).toContain(fav);
       expect(PERSONALITIES[p].likes).toContain(fav);
-      expect(tip({ id: 1, name: 'Max', age, pers: p, fam: 1, skin: '', hair: '', hairColor: '', outfit: {} as never })).toContain('Max');
+      expect(tip({ id: 1, name: 'Max', age, pers: p, fam: 1, skin: 0, hair: '', hairColor: '', outfit: {} })).toContain('Max');
     }
   });
 });
@@ -45,6 +46,7 @@ describe('the nursery grows', () => {
     expect(w.children).toHaveLength(3);
     expect(w.families.map((f) => f.kids.length)).toEqual([2, 1]);
     expect(w.unlocked).toEqual(STARTER);
+    expect(STARTER.length).toBeGreaterThan(10);
   });
 
   it('adds one family of 1-3 children a day, siblings of different ages 0-4, never past 22', () => {
@@ -66,22 +68,26 @@ describe('the nursery grows', () => {
     expect(new Set(w.children.map((c) => c.name)).size).toBe(MAX_CHILDREN);
   });
 
-  it('unlocks a hat, headband and dummy, then a top, bottoms and shoes', () => {
+  it('unlocks two new clothes a day until every painted piece is unlocked', () => {
     const w = newWorld(seeded(3));
-    expect(nextDay(w).clothes.map((i) => i.cat)).toEqual(['hat', 'headband', 'dummy']);
-    expect(nextDay(w).clothes.map((i) => i.cat)).toEqual(['top', 'bottoms', 'shoes']);
-    for (let i = 0; i < 20; i++) nextDay(w);
-    expect(DAILY.every((id) => w.unlocked.includes(id))).toBe(true);
+    const before = w.unlocked.length;
+    expect(nextDay(w).clothes).toHaveLength(2);
+    expect(w.unlocked.length).toBe(before + 2);
+    for (let i = 0; i < 60; i++) nextDay(w);
+    expect(ITEMS.every((i) => w.unlocked.includes(i.id))).toBe(true);
+    expect(nextDay(w).clothes).toHaveLength(0);
   });
 
-  it('only gives dummies to children 2 and under', () => {
+  it('every child is dressed in clothes for their own doll, with a painted hairstyle', () => {
     const rng = seeded(4);
     const w = newWorld(rng);
     for (let i = 0; i < 15; i++) nextDay(w, rng);
-    for (const c of w.children) if (!showsDummy(c.age)) expect(c.outfit.dummy).toBe('dummy0');
-    expect(showsDummy(2)).toBe(true);
-    expect(showsDummy(3)).toBe(false);
-    expect(showsDummy('adult')).toBe(false);
+    for (const c of w.children) {
+      const kind = kindOf(c.age);
+      expect(HAIR[kind]).toContain(c.hair);
+      for (const slot of NEEDED.filter((s) => SLOTS[kind].includes(s))) expect(c.outfit[slot]).toBeTruthy();
+      for (const id of Object.values(c.outfit)) if (id) expect(ITEM[id].kind).toBe(kind);
+    }
   });
 });
 
@@ -151,14 +157,14 @@ describe('a day', () => {
     expect(k.hearts).toBe(5);
   });
 
-  it('a nap means asleep for an hour, and tiredness goes down', () => {
+  it('a nap means asleep for an hour (babies a bit longer), and tiredness goes down', () => {
     const { w, d } = started(10);
     const id = w.families[1].kids[0];
     d.kid(id).m.tired = 90;
     expect(d.act(id, 'nap').ok).toBe(true);
     expect(d.act(id, 'cuddle')).toEqual({ ok: false, why: 'asleep' });
     expect(d.mood(d.kid(id))).toBe('asleep');
-    d.advance(61);
+    d.advance(76);
     expect(d.asleep(d.kid(id))).toBe(false);
     expect(d.kid(id).m.tired).toBeLessThan(10);
   });
@@ -247,6 +253,27 @@ describe('a day', () => {
   });
 });
 
+describe('wishes', () => {
+  it('three a day, about things today\'s children can do, and they come true by playing', () => {
+    const w = newWorld(seeded(40));
+    const d = new Day(w, newDay(w, seeded(40)), seeded(40));
+    expect(d.s.wishes).toHaveLength(3);
+    const fav = d.s.wishes.find((x) => x.kind === 'favourite')!;
+    const c = d.child(fav.kid!);
+    expect(fav.text).toContain(c.name);
+    const act = d.s.wishes.find((x) => x.kind === 'act')!;
+    expect(w.children.some((k) => allowed(k.age).includes(act.act!))).toBe(true);
+    d.start();
+    for (const f of w.families) d.dropOff(f.id);
+    const r = d.act(c.id, fav.act!);
+    expect(r.ok && r.wishes).toContainEqual(expect.objectContaining({ kind: 'favourite' }));
+    // A wish only comes true once.
+    d.advance(30);
+    const again = d.act(c.id, fav.act!);
+    expect(again.ok && again.wishes.some((x) => x.kind === 'favourite')).toBe(false);
+  });
+});
+
 describe('rewards', () => {
   it('only come with 22 children and a good day', () => {
     const rng = seeded(15);
@@ -270,17 +297,17 @@ describe('rewards', () => {
     expect(new Set(w.furniture).size).toBe(w.furniture.length);
   });
 
-  it('clothes rewards unlock the special clothes', () => {
+  it('clothes rewards unlock three locked pieces', () => {
     const w = newWorld(seeded(17));
     const r = rewardChoices(w, seeded(17)).find((x) => x.kind === 'clothes')!;
+    expect(r.kind === 'clothes' && r.ids.every((id) => !w.unlocked.includes(id))).toBe(true);
     takeReward(w, r);
-    expect(w.unlocked).toContain('hat12');
-    expect(ITEM['hat12'].name).toBe('Silver crown');
+    expect(r.kind === 'clothes' && r.ids.every((id) => w.unlocked.includes(id))).toBe(true);
   });
 });
 
 describe("Isabelle's own child", () => {
-  const baby = { name: 'Luna', age: 0, pers: 'sleepy' as const, skin: '#ffe3cc', hair: 'tuft', hairColor: '#6b4226' };
+  const baby = { name: 'Luna', age: 0, pers: 'sleepy' as const, skin: 2, hair: 'wisps', hairColor: 'brown', outfit: { suit: 'baby:suit-1' } };
 
   it('is here all day, needs no pick-up, and the day still ends', () => {
     const w = newWorld(seeded(30));
@@ -308,7 +335,7 @@ describe("Isabelle's own child", () => {
     for (let i = 0; i < 40; i++) { const b = nextDay(w, rng).birthday; if (b) birthdays.push(b.age); }
     expect(birthdays).toEqual(Array.from({ length: GROWN_UP }, (_, i) => i + 1));
     expect(c.age).toBe(GROWN_UP);
-    expect(c.hair).not.toBe('tuft');
+    expect(HAIR.adult).toContain(c.hair);
     expect(nursery(w)).toHaveLength(MAX_CHILDREN);
     expect(w.children).toHaveLength(MAX_CHILDREN + 1);
     expect(earnsReward(w, Array(22).fill(5))).toBe(true);

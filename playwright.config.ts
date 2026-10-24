@@ -4,7 +4,7 @@ import { defineConfig, devices } from '@playwright/test';
 const fire = { browserName: 'chromium' as const, hasTouch: true, isMobile: true, userAgent: 'Mozilla/5.0 (Linux; Android 11; KFTRWI) AppleWebKit/537.36 (KHTML, like Gecko) Silk/120 like Chrome/120 Safari/537.36' };
 export default defineConfig({
   testDir: 'e2e',
-  timeout: 180_000,
+  timeout: 300_000,
   workers: 4,
   // Less motion so taps don't wait for bobbing children to hold still.
   use: { baseURL: 'http://127.0.0.1:4212/', screenshot: 'only-on-failure', contextOptions: { reducedMotion: 'reduce' } },
