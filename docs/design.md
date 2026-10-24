@@ -9,10 +9,18 @@
     dress-up box, potty, garden door (outside).
   - Upstairs: cots (nap), changing table (nappy), milk fridge (bottle), cuddle chair, wardrobe.
 - Isabelle is in the room and has a wardrobe page too.
-- Clock on the left, 8am to 5pm, only moves when you finish something (or tap ⏩). Families arrive and leave at different times.
+- Clock on the left, 8am to 5pm, runs by itself (a day is about 15 minutes; ⏩ jumps half an hour); chats and the wardrobe pause it.
+  Families arrive and leave at different times.
+- Needs build up as meters (hungry, tired, toilet, bored, needs love); a bubble at 65%, crying near full (babies sooner).
+  Crying unattended costs hearts; too tired and they nod off on the floor. The more children, the slower each one's needs build.
+- Children act by themselves: wander, play with things on their floor, chat to each other; babies sit and crawl on the mat.
+  Faces show feelings: happy, laughing, wanting, crying (with tears), asleep.
+- Emily walks over and helps a child downstairs every so often when the desk is quiet. Parents chat about their day,
+  remember yesterday, and at pick-up ask whether you did this morning's tip.
+- Drawings: picture-book 2D with shading, eyes, eyebrows, walking legs, shadows, and golden late-afternoon light.
 - Families bring 1 to 3 children, newborn to 4; mum or dad drops off and picks up.
 - Drop-off: the parent gives a tip about each child (their favourite thing); you pick reply buttons. Doing the tip gives extra hearts.
-- Care: a bubble shows what a child needs; tap the child, then the thing. Hearts (0-5) go up.
+- Care: tap the child (or their bubble), then the thing. Meeting a need empties that meter and adds a heart (the favourite, two).
   - Newborn to 1: bottle, nappy, nap, cuddle. 1 to 2: those plus snack, blocks, song.
     3 to 4: snack, painting, dressing up, story, outside, potty (plus cuddle and nap, for shy and sleepy children).
 - Personality per child, shown as an icon: shy (cuddle first), wild (outside), sleepy (naps), hungry (snacks), creative (painting), chatty (stories).

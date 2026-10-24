@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DAILY, ITEM, MAX_CHILDREN, PERSONALITIES, Personality, STARTER, allowed, favourite } from '../src/game/catalog';
-import { CLOSE, Day, OPEN, clock, newDay } from '../src/game/day';
+import { ACTS, DAILY, ITEM, MAX_CHILDREN, PERSONALITIES, Personality, STARTER, allowed, favourite } from '../src/game/catalog';
+import { CLOSE, Day, METERS, METER_OF, OPEN, SPEED, clock, newDay } from '../src/game/day';
 import { KEY, load, save, wipe } from '../src/game/save';
 import { heartsLine, hello, tip } from '../src/game/talk';
 import { GROWN_UP, World, earnsReward, haveChild, newWorld, nextDay, nursery, ownChild, rewardChoices, showsDummy, takeReward } from '../src/game/world';
@@ -21,9 +21,9 @@ function playDay(w: World, rng = seeded(7)) {
   for (let guard = 0; guard < 2000 && !d.done(); guard++) {
     const front = d.s.queue[0];
     if (front !== undefined) { d.fam(front).state === 'drop' ? d.dropOff(front) : d.pickUp(front); continue; }
-    const k = d.present().filter((k) => k.need && !d.asleep(k))[0];
-    if (k) d.act(k.id, k.need!.act);
-    else d.skip();
+    const k = d.present().find((k) => d.need(k));
+    if (k) d.act(k.id, d.needAct(k));
+    d.advance(5);
   }
   return d;
 }
@@ -86,6 +86,16 @@ describe('the nursery grows', () => {
 });
 
 describe('a day', () => {
+  /** A day with both day-1 families dropped off. */
+  function started(seed: number, setup?: (w: World) => void) {
+    const w = newWorld(seeded(seed));
+    setup?.(w);
+    const d = new Day(w, newDay(w, seeded(seed)), seeded(seed));
+    d.start();
+    for (const f of w.families) d.dropOff(f.id);
+    return { w, d };
+  }
+
   it('runs 8am to 5pm and ends when every family has gone home', () => {
     const w = newWorld(seeded(5));
     const d = playDay(w);
@@ -93,117 +103,147 @@ describe('a day', () => {
     expect(d.s.t).toBeLessThanOrEqual(CLOSE);
     expect(clock(OPEN)).toBe('8:00am');
     expect(clock(CLOSE)).toBe('5:00pm');
-    expect(clock(12 * 60 + 30)).toBe('12:30pm');
+    expect(clock(12 * 60 + 30.7)).toBe('12:30pm');
+    expect(SPEED * 15 * 60).toBe(CLOSE - OPEN);
   });
 
-  it('only asks for things a child that age can do', () => {
+  it('needs build up over time and always ask for something that age can do', () => {
     const rng = seeded(6);
     const w = newWorld(rng);
     for (let i = 0; i < 12; i++) nextDay(w, rng);
     const d = new Day(w, newDay(w, rng), rng);
     d.start();
-    for (let i = 0; i < 300 && !d.done(); i++) {
+    let seen = 0;
+    for (let i = 0; i < 400 && !d.done(); i++) {
       const front = d.s.queue[0];
       if (front !== undefined) { d.fam(front).state === 'drop' ? d.dropOff(front) : d.pickUp(front); continue; }
-      for (const k of d.present()) if (k.need) expect(allowed(d.child(k.id).age)).toContain(k.need.act);
-      d.skip();
+      for (const k of d.present()) if (d.need(k)) { seen++; expect(allowed(d.child(k.id).age)).toContain(d.needAct(k)); }
+      d.advance(5);
     }
+    expect(seen).toBeGreaterThan(20);
   });
 
   it('turns away things for the wrong age', () => {
-    const w = newWorld(seeded(8));
-    const d = new Day(w, newDay(w), seeded(8));
-    d.start();
-    d.dropOff(w.families[0].id);
-    d.dropOff(w.families[1].id);
+    const { w, d } = started(8);
     const baby = w.children.find((c) => c.age === 0);
     const big = w.children.find((c) => c.age >= 3);
     if (baby) expect(d.act(baby.id, 'painting')).toEqual({ ok: false, why: 'tooLittle' });
     if (big) expect(d.act(big.id, 'bottle')).toEqual({ ok: false, why: 'tooBig' });
   });
 
-  it('meeting a need adds a heart, the favourite adds two, and the clock moves', () => {
-    const w = newWorld(seeded(9));
-    const d = new Day(w, newDay(w), seeded(9));
-    d.start();
-    d.dropOff(w.families[1].id);
+  it('meeting a need empties that meter, adds a heart, and makes them laugh; the favourite adds two', () => {
+    const { w, d } = started(9);
     const c = d.child(w.families[1].kids[0]);
     const k = d.kid(c.id);
-    const other = allowed(c.age).find((a) => a !== favourite(c.pers, c.age))!;
-    k.need = { act: other, since: d.s.t };
-    const t = d.s.t;
+    for (const m of METERS) k.m[m] = 0;
+    const fav = favourite(c.pers, c.age);
+    const other = allowed(c.age).find((a) => METER_OF[a] !== METER_OF[fav] && a !== 'nap')!;
+    k.m[METER_OF[other]] = 80;
+    expect(d.need(k)).toBe(METER_OF[other]);
     expect(d.act(c.id, other)).toMatchObject({ ok: true, matched: true, fav: false });
     expect(k.hearts).toBe(4);
-    expect(d.s.t).toBe(t + 15);
-    k.sleepUntil = 0;
-    k.need = { act: favourite(c.pers, c.age), since: d.s.t };
-    d.act(c.id, favourite(c.pers, c.age));
+    expect(k.m[METER_OF[other]]).toBe(0);
+    expect(d.mood(k)).toBe('laugh');
+    d.advance(20);
+    k.m[METER_OF[fav]] = 80;
+    k.hearts = 3;
+    expect(d.act(c.id, fav)).toMatchObject({ ok: true, matched: true, fav: true });
     expect(k.hearts).toBe(5);
   });
 
-  it('a nap means asleep for an hour', () => {
-    const w = newWorld(seeded(10));
-    const d = new Day(w, newDay(w), seeded(10));
-    d.start();
-    d.dropOff(w.families[1].id);
+  it('a nap means asleep for an hour, and tiredness goes down', () => {
+    const { w, d } = started(10);
     const id = w.families[1].kids[0];
+    d.kid(id).m.tired = 90;
     expect(d.act(id, 'nap').ok).toBe(true);
     expect(d.act(id, 'cuddle')).toEqual({ ok: false, why: 'asleep' });
-    d.advance(60);
+    expect(d.mood(d.kid(id))).toBe('asleep');
+    d.advance(61);
     expect(d.asleep(d.kid(id))).toBe(false);
+    expect(d.kid(id).m.tired).toBeLessThan(10);
   });
 
-  it('a need left for an hour costs half a heart', () => {
-    const w = newWorld(seeded(11));
-    const d = new Day(w, newDay(w), seeded(11));
-    d.start();
-    d.dropOff(w.families[1].id);
+  it('a crying child loses half a heart every 20 minutes', () => {
+    const { w, d } = started(11, (w) => { w.helpers = []; });
     const k = d.kid(w.families[1].kids[0]);
-    k.need = { act: 'cuddle', since: d.s.t };
-    d.advance(60);
+    d.s.next.emily = CLOSE;
+    k.m.hunger = 99;
+    const ev = d.advance(1);
+    expect(ev).toContainEqual({ type: 'startCry', kid: k.id });
+    expect(d.mood(k)).toBe('cry');
+    d.advance(20);
     expect(k.hearts).toBe(2.5);
   });
 
+  it('a child too tired nods off on the floor and is a bit sad about it', () => {
+    const { w, d } = started(12);
+    const k = d.kid(w.families[1].kids[0]);
+    d.s.next.emily = CLOSE;
+    k.busyUntil = 0;
+    k.m.tired = 100;
+    expect(d.advance(1)).toContainEqual({ type: 'doze', kid: k.id });
+    expect(k.floorNap).toBe(true);
+    expect(k.hearts).toBe(2.5);
+  });
+
+  it('children play by themselves, chat and wander, and self-play is on their own floor', () => {
+    const { d } = started(13);
+    d.s.next.emily = CLOSE;
+    const types = new Set<string>();
+    for (let i = 0; i < 300; i++) for (const ev of d.advance(1)) {
+      types.add(ev.type);
+      if (ev.type === 'selfplay') expect(ACTS[ev.act].floor).toBe(d.kid(ev.kid).floor);
+    }
+    expect(types).toContain('selfplay');
+    expect(types).toContain('wander');
+  });
+
   it('⏩ waits until drop-offs at the desk are greeted', () => {
-    const w = newWorld(seeded(12));
-    const d = new Day(w, newDay(w), seeded(12));
+    const w = newWorld(seeded(14));
+    const d = new Day(w, newDay(w), seeded(14));
     d.start();
     expect(d.s.queue).toHaveLength(2);
     expect(d.canSkip()).toBe(false);
     expect(d.hint()).toMatch(/at the desk/);
-    d.dropOff(w.families[0].id);
-    d.dropOff(w.families[1].id);
-    expect(d.canSkip()).toBe(true);
+    for (const f of w.families) d.dropOff(f.id);
     d.skip();
     expect(d.s.t).toBe(OPEN + 30);
   });
 
-  it('parents join the pick-up queue at their time, and at 5pm everyone left is queued', () => {
-    const w = newWorld(seeded(13));
-    const d = new Day(w, newDay(w), seeded(13));
-    d.start();
-    for (const f of w.families) d.dropOff(f.id);
+  it('parents queue at their time; at pick-up the family remembers the hearts', () => {
+    const { w, d } = started(15);
     d.advance(960 - OPEN);
     expect(d.s.queue).toEqual([w.families[0].id]);
     d.advance(60);
     expect(d.s.queue).toEqual([w.families[0].id, w.families[1].id]);
+    const hearts = d.kid(w.families[0].kids[0]).hearts;
     d.pickUp(w.families[0].id);
     d.pickUp(w.families[1].id);
     expect(d.done()).toBe(true);
+    expect(w.families[0].last).toEqual({ day: 1, hearts: expect.objectContaining({ [w.families[0].kids[0]]: hearts }) });
   });
 
-  it('helpers meet needs of their kind by themselves', () => {
-    const w = newWorld(seeded(14));
-    w.helpers = ['story'];
-    const d = new Day(w, newDay(w), seeded(14));
-    d.start();
-    d.dropOff(w.families[1].id);
+  it('helpers see to needs of their kind every 15 minutes', () => {
+    const { w, d } = started(16, (w) => { w.helpers = ['story']; });
+    d.s.next.emily = CLOSE;
     const k = d.kid(w.families[1].kids[0]);
-    k.need = { act: 'cuddle', since: d.s.t };
-    const ev = d.advance(5);
-    expect(ev).toContainEqual({ type: 'helper', helper: 'story', kid: k.id, act: 'cuddle' });
-    expect(k.need).toBeNull();
-    expect(k.did).toEqual(['cuddle']);
+    for (const m of METERS) k.m[m] = 0;
+    k.m.love = 80;
+    const ev = d.advance(1);
+    expect(ev).toContainEqual({ type: 'helper', helper: 'story', kid: k.id, act: d.child(k.id).pers === 'chatty' && d.child(k.id).age >= 3 ? 'story' : 'cuddle' });
+    expect(k.m.love).toBeLessThan(5);
+  });
+
+  it('Emily helps downstairs when the desk is quiet, but not babies upstairs', () => {
+    const { d } = started(17);
+    for (const k of d.present()) { for (const m of METERS) k.m[m] = 0; k.busyUntil = 0; }
+    const up = d.present().find((k) => k.floor === 'up');
+    if (up) up.m.toilet = 90;
+    const down = d.present().find((k) => k.floor === 'down')!;
+    down.m.hunger = 80;
+    d.s.next.emily = d.s.t;
+    const ev = d.advance(1).filter((e) => e.type === 'helper');
+    expect(ev).toEqual([{ type: 'helper', helper: 'emily', kid: down.id, act: 'snack' }]);
   });
 });
 
@@ -277,8 +317,10 @@ describe("Isabelle's own child", () => {
     d.start();
     d.dropOff(w.families[0].id);
     const k = d.kid(w.families[0].kids[0]);
-    k.need = { act: allowed(d.child(k.id).age)[0], since: d.s.t };
-    expect(d.advance(5)).toContainEqual({ type: 'helper', helper: 'own', kid: k.id, act: allowed(d.child(k.id).age)[0] });
+    for (const m of METERS) k.m[m] = 0;
+    k.m.toilet = 80;
+    k.busyUntil = 0;
+    expect(d.advance(1)).toContainEqual({ type: 'helper', helper: 'own', kid: k.id, act: d.needAct(k, 'toilet') });
     expect(ownChild(w)!.name).toBe('Luna');
   });
 });

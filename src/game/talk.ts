@@ -40,3 +40,47 @@ export function heartsLine(c: Child, hearts: number): string {
   if (hearts >= 2.5) return `Thanks for looking after ${c.name}!`;
   return `${c.name} looks a bit tired. See you tomorrow!`;
 }
+
+// --- smarter parents: their own day, yesterday, and checking on this morning's tip ---
+
+export const smallTalk = (rng: Rng) => pick(rng, [
+  "I'm off to work at the bakery. It smells so good there!",
+  'We saw a fox on the way here!',
+  "It's raining cats and dogs out there!",
+  "I've got a big meeting today. Wish me luck!",
+  'We had pancakes for breakfast!',
+  "I'm going to the dentist. Eek!",
+  'The bus was so busy this morning!',
+  'Grandma is coming for tea later!',
+]);
+
+export const homeTalk = (rng: Rng) => pick(rng, [
+  "We're off to the park now!",
+  "It's fish fingers for tea tonight!",
+  'Time for a bath and bed!',
+  "We're visiting Grandad on the way home.",
+  'I missed you all day!',
+]);
+
+export function yesterday(c: Child, hearts: number | undefined): string | null {
+  if (hearts === undefined) return null;
+  if (hearts >= 4) return `${c.name} had the best day yesterday! Thank you!`;
+  if (hearts >= 2.5) return `${c.name} liked it here yesterday.`;
+  return `${c.name} was a bit sad yesterday. I hope today is better!`;
+}
+
+const DID_YOU: Record<Act, string> = {
+  bottle: 'have lots of milk', nappy: 'get changed', nap: 'have a good nap', cuddle: 'get a cuddle', snack: 'have a snack',
+  blocks: 'play with blocks', song: 'have a sing-song', painting: 'do some painting', dressup: 'dress up', story: 'hear a story',
+  outside: 'play outside', potty: 'use the potty', play: 'play',
+};
+
+/** At pick-up the parent checks on this morning's tip. */
+export const checkTip = (c: Child) => `Did ${c.name} ${DID_YOU[favourite(c.pers, c.age)]} today?`;
+
+export function tipAnswer(c: Child, saidYes: boolean, didIt: boolean): string {
+  if (saidYes && didIt) return 'Brilliant! Thank you for remembering!';
+  if (saidYes) return `Hmm, ${c.name} says no! Maybe tomorrow.`;
+  if (didIt) return `${c.name} says yes! You forgot. Silly!`;
+  return "That's okay. Maybe tomorrow!";
+}

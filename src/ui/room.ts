@@ -97,7 +97,7 @@ export const STATIONS: Station[] = [
   { id: 'cot3', floor: 'up', x: 375, y: 480, w: 120, h: 110, label: '😴 Cot', art: ART.cot('#c9f0dc'), act: 'nap', kx: 375, ky: 462 },
   { id: 'change', floor: 'up', x: 525, y: 480, w: 150, h: 140, label: '🧷 Nappies', art: ART.change, act: 'nappy', kx: 525, ky: 552 },
   { id: 'milk', floor: 'up', x: 668, y: 430, w: 90, h: 140, label: '🍼 Milk', art: ART.milk, act: 'bottle', kx: 668, ky: 520 },
-  { id: 'chair', floor: 'up', x: 805, y: 548, w: 150, h: 140, label: '🤗 Cuddles', art: ART.chair, act: 'cuddle', kx: 805, ky: 528 },
+  { id: 'chair', floor: 'up', x: 805, y: 548, w: 150, h: 140, label: '🤗 Cuddles', art: ART.chair, act: 'cuddle', kx: 805, ky: 610 },
   { id: 'wardrobe', floor: 'up', x: 955, y: 430, w: 150, h: 280, label: '👗 Wardrobe', art: ART.wardrobe, kind: 'wardrobe', kx: 900, ky: 520 },
   { id: 'stairsDown', floor: 'up', x: 985, y: 690, w: 150, h: 150, label: '⬇️ Downstairs', art: ART.stairsDown, kind: 'stairs', kx: 940, ky: 640 },
 ];
@@ -124,9 +124,14 @@ export function wallDecor(floor: Floor): string {
   if (floor === 'down') {
     return `<div class="sign">${narwhal(0.55)}<span>Narwhal Nursery</span>${narwhal(0.55)}</div>
       <div class="bunting">${Array.from({ length: 14 }, (_, i) => `<i style="color:${['#ff8fb8', '#ffd84d', '#8ec5f0', '#8fd6a0', '#b48cf0'][i % 5]}"></i>`).join('')}</div>
-      <div class="door-front">${ART.frontDoor}</div>`;
+      <div class="door-front">${ART.frontDoor}</div>
+      <div class="wall-art" style="left:120px;top:150px"><i style="background:#fff6c2">🌈</i></div>
+      <div class="wall-art" style="left:760px;top:170px"><i style="background:#d9f1ff">🐳</i><i style="background:#ffe3ea">🌻</i></div>
+      <div class="plant" style="left:286px;top:330px">🪴</div>`;
   }
   return `<div class="window"><span>☁️</span><span>🌙</span><span>⭐</span></div>
     <div class="mobile">${['⭐', '🌙', '🐳', '⭐'].map((e) => `<span>${e}</span>`).join('')}</div>
-    <div class="rainbow"></div><div class="mat"></div>`;
+    <div class="rainbow"></div><div class="mat"></div>
+    <div class="wall-art" style="left:300px;top:230px"><i style="background:#fff6c2">⭐</i><i style="background:#d9f1ff">🦄</i></div>
+    <div class="plant" style="left:732px;top:330px">🪴</div>`;
 }

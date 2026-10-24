@@ -1,18 +1,17 @@
 // Screens: start, the nursery (two floors), chats at the desk, the wardrobe, and the end of the day.
 import './style.css';
-import { ACTS, Act, CATS, CAT_LABEL, Cat, FURNITURE, Floor, HAIR_COLOURS, HELPERS, HelperId, ITEM, ITEMS, KID_HAIR, PERSONALITIES, Personality, SKINS } from './game/catalog';
-import { CLOSE, Day, DayKid, Event, MAX_HEARTS, clock, newDay } from './game/day';
+import { ACTS, Act, CATS, CAT_LABEL, Cat, FURNITURE, Floor, HAIR_COLOURS, HELPERS, HelperId, ITEM, ITEMS, KID_HAIR, PERSONALITIES, Personality, SKINS, favourite } from './game/catalog';
+import { CLOSE, Day, DayKid, Event, MAX_HEARTS, METERS, METER_INFO, SPEED, WANT, clock, newDay } from './game/day';
 import { load, save, wipe } from './game/save';
-import { didLabel, heartsLine, hello, reaction, tip, tipMore } from './game/talk';
+import { checkTip, didLabel, heartsLine, hello, homeTalk, reaction, smallTalk, tip, tipAnswer, tipMore, yesterday } from './game/talk';
 import { Child, Family, GROWN_UP, Look, NewChild, OWN, Reward, World, earnsReward, familyName, haveChild, newWorld, nextDay, ownChild, ownIsHelper, randomOutfit, rewardChoices, showsDummy, takeReward } from './game/world';
-import { person, personWidth } from './ui/people';
+import { FaceMood, person, personWidth } from './ui/people';
 import { PLAY_AREA, ROOM_H, ROOM_W, STATIONS, Station, furnitureStations, narwhal, wallDecor } from './ui/room';
 import { actSound, setMuted, sfx, startMusic } from './ui/sound';
 
 const store = (() => { try { return window.localStorage; } catch { return null; } })();
 const app = document.getElementById('app')!;
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 let w: World;
@@ -46,8 +45,8 @@ app.innerHTML = `<div id="stage">
     <div class="side-btns"><button class="baby">👶 Have a child</button><button class="mute icon" aria-label="Sound off">🔊</button></div>
   </aside>
   <main class="room">
-    ${(['down', 'up'] as Floor[]).map((f) => `<div class="floor ${f}" data-floor="${f}"><div class="wall"></div><div class="ground"></div>${wallDecor(f)}<div class="stations"></div></div>`).join('')}
-    <div class="people"></div><div class="fx"></div>
+    ${(['down', 'up'] as Floor[]).map((f) => `<div class="floor ${f}" data-floor="${f}"><div class="wall"></div><div class="skirting"></div><div class="ground"></div>${wallDecor(f)}<div class="stations"></div></div>`).join('')}
+    <div class="people"></div><div class="light"></div><div class="fx"></div>
   </main>
   <div class="say"><div class="face"></div><p></p></div>
   <div class="modal" hidden></div>
@@ -74,7 +73,7 @@ function drawStations() {
   }
   // Emily stands with the furniture so the desk stays in front of her; everyone else is drawn above it all.
   const wd = personWidth('adult');
-  room.querySelector('.floor.down .stations')!.insertAdjacentHTML('beforeend', `<div class="p emily" style="width:${wd}px;transform:translate(${195 - wd / 2}px, ${470 - wd * 1.56}px);z-index:470">
+  room.querySelector('.floor.down .stations')!.insertAdjacentHTML('beforeend', `<div class="p emily st-emily" style="width:${wd}px;transform:translate(${195 - wd / 2}px, ${470 - wd * 1.56}px);z-index:470">
     <div class="art">${person({ ...EMILY, age: 'adult', badge: 'Emily' })}</div><div class="tag">Emily</div></div>`);
 }
 
@@ -114,6 +113,13 @@ function fx(text: string, x: number, y: number, cls = '') {
 
 // ---------- drawing people ----------
 
+/** Real-time bits the rules don't need: who is chatting, who is mid-walk, where Emily has gone. */
+const chatting = new Map<number, number>();
+const lastPos = new Map<string, string>();
+let emilyTrip: { x: number; y: number; back: number; home: number } | null = null;
+let lastCrySound = 0;
+let lastCryNote = 0;
+
 function el(key: string, html: () => string, cls: string): HTMLElement {
   let e = peopleEl.querySelector<HTMLElement>(`[data-key="${key}"]`);
   if (!e) {
@@ -128,29 +134,50 @@ function el(key: string, html: () => string, cls: string): HTMLElement {
   return e;
 }
 
+/** Position a person; a change of spot makes their legs walk while they slide there. */
 function place(e: HTMLElement, x: number, y: number, age: number | 'adult', floor: Floor, lift = 0) {
   const wd = personWidth(age);
+  const key = e.dataset.key!;
+  const pos = `${Math.round(x)},${Math.round(y)}`;
+  if (lastPos.get(key) !== pos) {
+    if (lastPos.has(key)) { e.classList.add('walking'); e.dataset.walkTill = String(performance.now() + 900); }
+    lastPos.set(key, pos);
+  }
+  if (Number(e.dataset.walkTill ?? 0) > performance.now()) e.classList.add('walking');
   e.style.width = `${wd}px`;
   e.style.transform = `translate(${x - wd / 2}px, ${y - wd * 1.56}px)`;
   e.style.zIndex = String(Math.round(y) + 1 + lift);
   e.classList.toggle('away', floor !== view);
 }
 
+/** A free spot in the play area: the best of a few tries, as far as possible from everyone else on that floor. */
 function homeSpot(k: DayKid) {
   const a = PLAY_AREA[k.floor];
-  k.x = rand(a.x[0], a.x[1]);
-  k.y = rand(a.y[0], a.y[1]);
+  const others = day.present().filter((o) => o !== k && o.floor === k.floor && o.x);
+  let best = { x: 0, y: 0, gap: -1 };
+  for (let i = 0; i < 12; i++) {
+    const x = rand(a.x[0], a.x[1]);
+    const y = rand(a.y[0], a.y[1]);
+    const gap = Math.min(999, ...others.map((o) => Math.hypot(o.x - x, (o.y - y) * 2)));
+    if (gap > best.gap) best = { x, y, gap };
+  }
+  k.x = best.x;
+  k.y = best.y;
   k.at = '';
 }
 
+const faceMood = (k: DayKid): FaceMood => day.mood(k);
+
 function render() {
   const s = day.s;
+  const now = performance.now();
   app.querySelector('.dayno')!.textContent = `Day ${w.day}`;
   app.querySelector('.time')!.textContent = clock(s.t);
-  const h = s.t / 60;
-  app.querySelector('.hh')!.setAttribute('transform', `rotate(${(h % 12) * 30} 50 50)`);
+  app.querySelector('.hh')!.setAttribute('transform', `rotate(${((s.t / 60) % 12) * 30} 50 50)`);
   app.querySelector('.mh')!.setAttribute('transform', `rotate(${(s.t % 60) * 6} 50 50)`);
   app.querySelector('.skip')!.classList.toggle('off', !day.canSkip());
+  // Late afternoon light turns golden.
+  room.style.setProperty('--dusk', String(Math.max(0, Math.min(1, (s.t - 900) / 120))));
   const waiting = s.queue.length;
   app.querySelector('.desk-note')!.innerHTML = waiting ? `🔔 ${waiting} at the desk` : `👶 ${day.present().length} here`;
   room.querySelectorAll<HTMLElement>('.floor').forEach((f) => f.classList.toggle('show', f.dataset.floor === view));
@@ -158,11 +185,20 @@ function render() {
   const seen = new Set<string>();
   const mark = (e: HTMLElement) => { seen.add(e.dataset.key!); return e; };
 
-
   // Isabelle.
   const isa = mark(el('isabelle', () => person({ ...w.isabelle, age: 'adult' }), 'isabelle'));
   place(isa, me[view].x, me[view].y, 'adult', view);
   isa.querySelector('.tag')!.textContent = 'Isabelle';
+
+  // Emily: at the desk, or out helping a child.
+  if (emilyTrip && now > emilyTrip.home) emilyTrip = null;
+  room.querySelector<HTMLElement>('.st-emily')!.classList.toggle('out', !!emilyTrip);
+  if (emilyTrip) {
+    const e = mark(el('emily-walk', () => person({ ...EMILY, age: 'adult', badge: 'Emily' }), 'helper'));
+    const back = now > emilyTrip.back;
+    place(e, back ? 195 : emilyTrip.x, back ? 500 : emilyTrip.y, 'adult', 'down');
+    e.querySelector('.tag')!.textContent = 'Emily';
+  }
 
   // The line at the desk, front first.
   s.queue.forEach((famId, i) => {
@@ -189,7 +225,6 @@ function render() {
     place(e, x, y, 'adult', hp.floor);
     e.querySelector('.tag')!.textContent = `${hp.e} ${hp.name}`;
   }
-
   const own = ownChild(w);
   if (own && ownIsHelper(w)) {
     const [x, y] = HELPER_SPOTS.down[used.down];
@@ -203,28 +238,32 @@ function render() {
   for (const k of s.kids) {
     if (!k.here) continue;
     const c = day.child(k.id);
-    if (k.at.startsWith('cot') && !day.asleep(k)) homeSpot(k);
+    const asleep = day.asleep(k);
+    if (k.at.startsWith('cot') && !asleep) homeSpot(k);
     if (!k.x) homeSpot(k);
-    const lying = day.asleep(k) && k.at.startsWith('cot');
-    const e = mark(el(`kid${k.id}`, () => person({ ...c, age: c.age, sleeping: day.asleep(k) }), `kid ${sel === k.id ? 'sel' : ''} ${lying ? 'lying' : ''}`));
+    const mood = faceMood(k);
+    const lying = asleep && (k.at.startsWith('cot') || k.floorNap);
+    const pose = c.age === 0 && sel !== k.id && !lying ? 'sit' : 'stand';
+    const e = mark(el(`kid${k.id}`, () => person({ ...c, age: c.age, mood, pose }), `kid ${sel === k.id ? 'sel' : ''} ${lying ? 'lying' : ''} ${mood}`));
     e.dataset.kid = String(k.id);
+    const need = day.need(k);
     // A child who needs something comes to the front so they can always be tapped.
-    place(e, k.x, k.y, c.age, k.floor, k.need && !day.asleep(k) ? 1000 : 0);
+    place(e, k.x, k.y, c.age, k.floor, need ? 1000 : 0);
     e.querySelector('.tag')!.textContent = `${c.fam === OWN ? '💖' : ''}${PERSONALITIES[c.pers].e} ${c.name}`;
     const b = e.querySelector<HTMLElement>('.bubble')!;
-    const asleep = day.asleep(k);
-    b.hidden = !k.need && !asleep;
-    b.textContent = asleep ? '💤' : k.need ? ACTS[k.need.act].e : '';
-    b.dataset.need = asleep ? '' : (k.need?.act ?? '');
-    b.classList.toggle('late', !!k.need && !asleep && s.t - k.need.since >= 30);
+    const talking = (chatting.get(k.id) ?? 0) > now;
+    b.hidden = !need && !asleep && !talking;
+    b.textContent = asleep ? '💤' : need ? ACTS[day.needAct(k)].e : '💬';
+    b.dataset.need = asleep || !need ? '' : day.needAct(k);
+    b.classList.toggle('late', mood === 'cry');
   }
 
-  peopleEl.querySelectorAll<HTMLElement>('.p').forEach((e) => { if (!seen.has(e.dataset.key!)) e.remove(); });
+  peopleEl.querySelectorAll<HTMLElement>('.p').forEach((e) => { if (!seen.has(e.dataset.key!)) { lastPos.delete(e.dataset.key!); e.remove(); } });
 
   // Stairs show what's waiting on the other floor.
   for (const st of ['stairsUp', 'stairsDown']) {
     const other: Floor = st === 'stairsUp' ? 'up' : 'down';
-    const needs = day.present().filter((k) => k.floor === other && k.need && !day.asleep(k)).length;
+    const needs = day.present().filter((k) => k.floor === other && day.need(k)).length;
     const desk = other === 'down' && waiting > 0;
     const badge = room.querySelector<HTMLElement>(`[data-st="${st}"] .badge`)!;
     badge.hidden = !needs && !desk;
@@ -239,13 +278,16 @@ function hearts(n: number) {
 
 function sideCard() {
   const card = app.querySelector<HTMLElement>('.card')!;
-  if (sel === null) { card.innerHTML = `<p class="hint">Tap a child, then tap what they need.</p>`; return; }
+  if (sel === null || !day.kid(sel).here) { sel = null; card.innerHTML = `<p class="hint">Tap a child, then tap what they need.</p>`; return; }
   const k = day.kid(sel);
   const c = day.child(sel);
-  const want = day.asleep(k) ? '💤 Asleep' : k.need ? `${ACTS[k.need.act].e} Wants ${ACTS[k.need.act].want}` : '😊 Happy';
-  card.innerHTML = `<div class="mini">${person({ ...c, age: c.age })}</div><b>${esc(c.name)}</b>
+  const need = day.need(k);
+  const want = day.asleep(k) ? '💤 Asleep' : need ? `${ACTS[day.needAct(k)].e} Wants ${ACTS[day.needAct(k)].want}` : '😊 Happy';
+  card.innerHTML = `<b>${esc(c.name)}</b>
     <small>${c.fam === OWN ? '💖 My child · ' : ''}${c.age === 0 ? 'Newborn' : `Age ${c.age}`} · ${PERSONALITIES[c.pers].e} ${PERSONALITIES[c.pers].label}</small>
-    <div class="hearts">${hearts(k.hearts)}</div><small class="want">${want}</small>`;
+    <div class="hearts">${hearts(k.hearts)}</div>
+    <div class="meters">${METERS.filter((m) => m !== 'fun' || c.age > 0).map((m) => `<div class="meter ${k.m[m] >= WANT ? 'hi' : ''}"><span>${METER_INFO[m].e}</span><i style="width:${Math.round(k.m[m])}%"></i></div>`).join('')}</div>
+    <small class="want">${want}</small>`;
 }
 
 // ---------- taps in the room ----------
@@ -257,9 +299,12 @@ function tapKid(id: number) {
   if (sel !== null) {
     const k = day.kid(id);
     const c = day.child(id);
+    const need = day.need(k);
     if (day.asleep(k)) say('isabelle', `Shh! ${c.name} is asleep.`);
-    else if (k.need) say('isabelle', `${c.name} wants ${ACTS[k.need.act].want}! Tap the ${ACTS[k.need.act].place}${ACTS[k.need.act].floor !== view ? ` ${ACTS[k.need.act].floor === 'up' ? 'upstairs' : 'downstairs'}` : ''}.`);
-    else say('isabelle', `${c.name} is happy! Let's do something fun.`);
+    else if (need) {
+      const a = ACTS[day.needAct(k)];
+      say('isabelle', `${c.name} ${day.mood(k) === 'cry' ? 'is crying! ' + c.name : ''} wants ${a.want}. Tap the ${a.place}${a.floor !== view ? ` ${a.floor === 'up' ? 'upstairs' : 'downstairs'}` : ''}.`.replace('  ', ' '));
+    } else say('isabelle', `${c.name} is happy! Let's do something fun.`);
   }
   render();
 }
@@ -270,7 +315,7 @@ function tapStation(st: Station) {
   if (st.kind === 'wardrobe') { sfx.pop(); return openWardrobe(sel ?? undefined); }
   if (st.kind === 'desk') return tapDesk(true);
   if (sel === null) { sfx.nope(); say('isabelle', 'Tap a child first!'); return; }
-  void doAct(sel, st);
+  doAct(sel, st);
 }
 
 function switchFloor() {
@@ -293,14 +338,19 @@ function switchFloor() {
 /** Children at the same thing stand side by side, never on top of each other. */
 function moveKidTo(k: DayKid, st: Station) {
   const n = day.present().filter((o) => o !== k && o.at === st.id).length;
-  const step = st.act === 'nap' ? 22 : 46;
+  const step = st.act === 'nap' ? 22 : 58;
   k.floor = st.floor;
   k.at = st.id;
   k.x = st.kx + (n % 2 ? -1 : 1) * Math.ceil(n / 2) * step;
   k.y = st.ky + (n % 3) * 4;
 }
 
-async function doAct(id: number, st: Station) {
+const stationFor = (act: Act, floor?: Floor) => {
+  const options = stations().filter((s) => s.act === act && (!floor || s.floor === floor));
+  return options[Math.floor(Math.random() * options.length)];
+};
+
+function doAct(id: number, st: Station) {
   const c = day.child(id);
   const r = day.act(id, st.act!, st.minAge ?? 0);
   if (!r.ok) {
@@ -308,36 +358,59 @@ async function doAct(id: number, st: Station) {
     say('isabelle', r.why === 'asleep' ? `Shh! ${c.name} is asleep.` : r.why === 'tooLittle' ? `${c.name} is too little for that!` : `${c.name} is too big for that!`);
     return;
   }
-  busy = true;
   const k = day.kid(id);
   moveKidTo(k, st);
   me[view] = { x: st.kx + 70, y: Math.max(st.ky + 30, 470) };
   sel = null;
-  render();
   actSound(st.act!);
   fx(ACTS[st.act!].e, k.x, k.y - 120);
   if (r.matched || r.fav) setTimeout(() => fx(r.fav ? '💖💖' : '💖', k.x, k.y - 90, 'heart'), 250);
-  say('isabelle', r.fav ? `${c.name} loved that! It's the favourite!` : r.matched ? `Yay! ${c.name} is happy.` : `${c.name} had fun!`);
-  await sleep(650);
-  busy = false;
-  handleEvents(r.events);
+  say('isabelle', r.fav ? `${c.name} loved that! It's the favourite!` : r.matched ? `Yay! ${c.name} feels much better.` : `${c.name} had fun!`);
   persist();
   render();
-  checkEnd();
 }
 
 function handleEvents(events: Event[]) {
+  const now = performance.now();
   for (const ev of events) {
-    if (ev.type === 'helper') {
-      const k = day.kid(ev.kid);
-      const options = stations().filter((s) => s.act === ev.act);
-      moveKidTo(k, options[Math.floor(Math.random() * options.length)]);
-      if (k.floor === view) setTimeout(() => fx(ACTS[ev.act].e, k.x, k.y - 110), 300);
-    } else {
+    if (ev.type === 'arrive' || ev.type === 'pickup') {
       sfx.ding();
       const f = day.fam(ev.fam);
       const who = `${familyName(w, famOf(ev.fam))}'s ${f.parent}`;
       say('emily', ev.type === 'arrive' ? `Ding dong! ${who} is at the desk.` : `${who} is here for pick-up!`);
+      continue;
+    }
+    const k = day.kid(ev.kid);
+    if (ev.type === 'helper') {
+      moveKidTo(k, stationFor(ev.act));
+      if (k.floor === view) setTimeout(() => fx(ACTS[ev.act].e, k.x, k.y - 110), 300);
+      if (ev.helper === 'emily') {
+        emilyTrip = { x: k.x + 60, y: k.y + 8, back: now + 3500, home: now + 4500 };
+        say('emily', `I'll help ${day.child(k.id).name} with ${ACTS[ev.act].want.replace(/^(a |an |to |the )/, '')}!`);
+      }
+    } else if (ev.type === 'selfplay') {
+      if (sel !== k.id) moveKidTo(k, stationFor(ev.act, k.floor));
+    } else if (ev.type === 'wander') {
+      if (sel === k.id || k.at.startsWith('cot')) continue;
+      if (day.child(k.id).age === 0) {
+        // Babies crawl a little way across the mat.
+        const a = PLAY_AREA[k.floor];
+        k.x = Math.max(a.x[0], Math.min(a.x[1], (k.x || a.x[0]) + rand(-70, 70)));
+        k.y = Math.max(a.y[0], Math.min(a.y[1], (k.y || a.y[0]) + rand(-20, 20)));
+        k.at = '';
+      } else homeSpot(k);
+    } else if (ev.type === 'chat') {
+      chatting.set(ev.kid, now + 2500);
+      chatting.set(ev.with, now + 2500);
+    } else if (ev.type === 'doze') {
+      if (sel === k.id) sel = null;
+      if (k.floor === view) fx('💤', k.x, k.y - 80);
+    } else if (ev.type === 'startCry') {
+      if (now - lastCrySound > 4000) { sfx.cry(); lastCrySound = now; }
+      if (k.floor !== view && now - lastCryNote > 20000) {
+        lastCryNote = now;
+        say('emily', `${day.child(k.id).name} is crying ${k.floor === 'up' ? 'upstairs' : 'downstairs'}!`);
+      }
     }
   }
 }
@@ -372,6 +445,23 @@ app.querySelector('.mute')!.addEventListener('click', (e) => {
   persist();
 });
 
+// ---------- the clock runs by itself ----------
+
+let started = false;
+let lastTick = performance.now();
+let lastSave = 0;
+setInterval(() => {
+  const now = performance.now();
+  const dt = Math.min(1, (now - lastTick) / 1000);
+  lastTick = now;
+  // Chats, the wardrobe and a hidden tab all pause the day.
+  if (!started || !modal.hidden || document.hidden || day.done()) return;
+  handleEvents(day.advance(SPEED * dt));
+  render();
+  if (now - lastSave > 4000) { persist(); lastSave = now; }
+  checkEnd();
+}, 250);
+
 // ---------- chats ----------
 
 function openChat(look: Look, kids: Child[], who: string) {
@@ -403,6 +493,10 @@ async function dropChat(famId: number) {
   openChat(fam[f.parent], kids, `${names}'s ${f.parent}`);
   const first = fam.visits === 0;
   await ask(hello(kids, first), first ? ['Hello! 👋', 'Welcome! 😊'] : ['Good morning! ☀️', 'Hi! 👋']);
+  if (fam.last && fam.last.day === w.day - 1) {
+    for (const c of kids) { const line = yesterday(c, fam.last.hearts[c.id]); if (line) await ask(line, ['😊']); }
+  }
+  if (!first) await ask(smallTalk(Math.random), ['Oh wow! 😮', 'Have a good day! 👋']);
   for (const c of kids) if ((await ask(tip(c), ['Got it! 👍', 'Tell me more'])) === 1) await ask(tipMore(c), ['Got it! 👍']);
   await ask(`Pick-up is at ${clock(f.leave)}. Bye bye, ${names}!`, ['See you later! 👋']);
   closeModal();
@@ -430,15 +524,18 @@ async function pickChat(famId: number) {
   await ask(`Hi Isabelle! I'm here for ${names}.`, ['Hello! 👋']);
   for (const c of kids) {
     const k = day.kid(c.id);
+    // The parent remembers this morning's tip and checks on it.
+    const yes = (await ask(checkTip(c), ['Yes! 👍', 'Not today'])) === 0;
+    await ask(tipAnswer(c, yes, k.did.includes(favourite(c.pers, c.age))), ['😊']);
     const did = [...new Set(k.did)].slice(-4) as Act[];
-    const i = await ask(`What did ${c.name} do today?`, did.length ? did.map(didLabel) : ['😌 A quiet day']);
+    const i = await ask(`What else did ${c.name} do today?`, did.length ? did.map(didLabel) : ['😌 A quiet day']);
     await ask(`${did.length ? `${reaction(Math.random, did[i])} ` : ''}${heartsLine(c, k.hearts)}`, ['😊']);
   }
-  await ask('See you tomorrow!', ['Bye bye! 👋']);
+  await ask(homeTalk(Math.random), ['Bye bye! 👋']);
   closeModal();
   day.pickUp(famId);
   if (sel !== null && !day.kid(sel).here) sel = null;
-  say('emily', `Bye bye, ${names}!`);
+  say('emily', `Bye bye, ${names}! See you tomorrow!`);
   busy = false;
   persist();
   render();
@@ -574,7 +671,7 @@ function endOfDay() {
   modal.hidden = false;
   modal.innerHTML = `<div class="night">
     <h2>Day ${w.day} done! 🌙</h2>
-    <div class="kids">${came.map((k) => { const c = day.child(k.id); return `<div class="kc"><div class="mini">${person({ ...c, age: c.age, sleeping: true })}</div><b>${esc(c.name)}</b><div class="hearts">${hearts(k.hearts)}</div></div>`; }).join('')}</div>
+    <div class="kids">${came.map((k) => { const c = day.child(k.id); return `<div class="kc"><div class="mini">${person({ ...c, age: c.age, mood: 'asleep' })}</div><b>${esc(c.name)}</b><div class="hearts">${hearts(k.hearts)}</div></div>`; }).join('')}</div>
     ${rewards.length ? `<h3>What a great day! Pick a reward:</h3><div class="rewards">${rewards.map((r, i) => `<button class="reward" data-i="${i}">${rewardCard(r)}</button>`).join('')}</div>` : ''}
     <button class="next" ${rewards.length ? 'hidden' : ''}>Next day ☀️</button></div>`;
   modal.querySelectorAll<HTMLElement>('.reward').forEach((b) => b.addEventListener('click', () => {
@@ -621,6 +718,7 @@ function startDay() {
 
 function begin(saved: ReturnType<typeof load>) {
   startMusic();
+  started = true;
   if (saved) {
     w = saved.world;
     setMuted(w.muted);

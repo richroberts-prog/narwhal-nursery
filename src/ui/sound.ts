@@ -68,6 +68,7 @@ export const sfx = {
   page: () => noise(0.18, 3000, 6000, 0.08),
   tune: () => notes([523, 523, 784, 784, 880, 880, 784], 0.13),
   cheer: () => notes([523, 659, 784, 1047, 784, 1047], 0.12),
+  cry: () => [0, 0.45].forEach((d) => tone(620, 380, 0.4, 'triangle', 0.07, d)),
 };
 
 const ACT_SOUND: Record<Act, () => void> = {

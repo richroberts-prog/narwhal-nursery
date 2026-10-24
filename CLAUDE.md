@@ -22,4 +22,7 @@ browser. Agreed design: `docs/design.md`.
 
 - Text never says he or she: names only (a test checks).
 - Every personality must have a favourite at every age (a baby once froze a chat).
-- People are drawn above furniture so every child can be tapped; Emily lives in the desk layer to stay behind it.
+- People are drawn above furniture and only their drawn shapes take taps, so every child can be tapped (a test checks both
+  floors); Emily lives in the desk layer to stay behind it.
+- Inputs must allow text selection or the iPad keyboard won't open.
+- Saves are versioned (`World.v`); an old version is ignored, not migrated.

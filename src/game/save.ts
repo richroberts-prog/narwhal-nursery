@@ -10,7 +10,7 @@ export function load(store: Store | null): Saved | null {
   try {
     const raw = store?.getItem(KEY);
     const s = raw ? (JSON.parse(raw) as Saved) : null;
-    return s?.world?.v === 1 ? s : null;
+    return s?.world?.v === 2 ? s : null;
   } catch { return null; }
 }
 

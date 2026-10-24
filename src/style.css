@@ -12,6 +12,8 @@
 html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; }
 body { background: #ffe9f1; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
 #app { position: fixed; inset: 0; }
+/* iPad Safari won't open the keyboard for a box that can't be selected. */
+input { -webkit-user-select: text; user-select: text; }
 button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; padding: 0; }
 [hidden] { display: none !important; }
 
@@ -96,17 +98,21 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 
 /* People */
 .people { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
-.p { position: absolute; left: 0; top: 0; transition: transform 0.55s ease, opacity 0.3s; pointer-events: auto; }
+/* Only the drawn shapes and the bubble take a tap, so a child's empty corner never steals one meant for a neighbour. */
+.p { position: absolute; left: 0; top: 0; transition: transform 0.9s ease-in-out, opacity 0.3s; pointer-events: none; }
+.p .art svg > * { pointer-events: visiblePainted; }
+.p .bubble { pointer-events: auto; }
 .p .art svg { width: 100%; height: auto; display: block; overflow: visible; }
-.p.away { opacity: 0; pointer-events: none; transition: none; }
-.p.isabelle, .p.helper { pointer-events: none; }
+.p.away { opacity: 0; transition: none; }
+.p.away .art svg > *, .p.away .bubble, .p.parent.more .art svg > * { pointer-events: none; }
+.p.isabelle .art svg > *, .p.helper .art svg > *, .p.isabelle .bubble, .p.helper .bubble { pointer-events: none; }
 .p .tag { position: absolute; left: 50%; bottom: -12px; transform: translateX(-50%); white-space: nowrap; font-size: 14px; font-weight: 800; background: #fffd; border-radius: 10px; padding: 1px 8px; pointer-events: none; }
 .p.kid .tag { font-size: 13px; }
 .p.parent.more { opacity: 0; pointer-events: none; }
 .p.parent.front .art { animation: bob 0.9s ease-in-out infinite alternate; }
 .p.kid.sel .art { filter: drop-shadow(0 0 6px #ff4f86) drop-shadow(0 0 3px #fff); animation: bob 0.6s ease-in-out infinite alternate; }
 .p.kid.lying .art { transform: rotate(-82deg) translate(-8px, 20px); transform-origin: 50% 80%; }
-.p .bubble { position: absolute; left: 50%; top: -40px; transform: translateX(-50%); width: 46px; height: 46px; border-radius: 50%; background: #fff; box-shadow: 0 3px 0 #0002; display: grid; place-items: center; font-size: 26px; pointer-events: none; }
+.p .bubble { position: absolute; left: 50%; top: -40px; transform: translateX(-50%); width: 46px; height: 46px; border-radius: 50%; background: #fff; box-shadow: 0 3px 0 #0002; display: grid; place-items: center; font-size: 26px; }
 .p .bubble::after { content: ''; position: absolute; bottom: -7px; left: 50%; margin-left: -6px; border: 6px solid transparent; border-top-color: #fff; border-bottom: 0; }
 .p .bubble.late { box-shadow: 0 0 0 3px var(--pink); animation: wobble 0.5s ease-in-out infinite alternate; }
 .p.kid.lying .bubble { top: 10px; }
@@ -209,3 +215,39 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---- depth and light ---- */
+.skirting { position: absolute; left: 0; right: 0; top: 384px; height: 18px; background: linear-gradient(#fff, #f1e6ea); box-shadow: 0 3px 6px #0000001a; }
+.down .wall::after, .up .wall::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 120px; background: linear-gradient(transparent, #00000010); }
+.down .wall { background-color: #ffe0d1; }
+.ground::before { content: ''; position: absolute; inset: 0; background: linear-gradient(#0000001c, transparent 30%), radial-gradient(ellipse at 85% 0%, #fff8d966, transparent 55%); }
+.st svg { filter: drop-shadow(0 6px 5px #0000002a); }
+.st::after { content: ''; position: absolute; left: 8%; right: 8%; bottom: -6px; height: 12px; border-radius: 50%; background: #00000014; z-index: -1; }
+.st.stairs::after { display: none; }
+.wall-art { position: absolute; display: flex; gap: 22px; }
+.wall-art i { display: block; width: 62px; height: 50px; border: 5px solid #fff; border-radius: 6px; box-shadow: 0 4px 6px #0002; font-style: normal; font-size: 30px; display: grid; place-items: center; transform: rotate(-3deg); }
+.wall-art i:nth-child(2n) { transform: rotate(4deg); }
+.plant { position: absolute; font-size: 54px; filter: drop-shadow(0 6px 4px #0003); }
+.light { position: absolute; inset: 0; pointer-events: none; z-index: 1500; background: radial-gradient(ellipse at 90% 30%, #ffd27a, transparent 60%), linear-gradient(#ff9b4a22, #ff9b4a33); mix-blend-mode: soft-light; opacity: var(--dusk, 0); transition: opacity 2s; }
+
+/* ---- people come alive ---- */
+.p .art .leg { transform-box: fill-box; transform-origin: 50% 0; }
+.p.walking .art .leg.l { animation: stride 0.32s ease-in-out infinite alternate; }
+.p.walking .art .leg.r { animation: stride 0.32s ease-in-out infinite alternate-reverse; }
+.p.walking .art { animation: hop 0.32s ease-in-out infinite alternate; }
+@keyframes stride { from { transform: rotate(-14deg); } to { transform: rotate(14deg); } }
+@keyframes hop { from { transform: translateY(0); } to { transform: translateY(-3px); } }
+.p.kid.cry .art { animation: sob 0.35s ease-in-out infinite alternate; }
+@keyframes sob { from { transform: translateX(-1.5px); } to { transform: translateX(1.5px); } }
+.p.kid.laugh .art { animation: bob 0.25s ease-in-out infinite alternate; }
+.p .art .tear { animation: drip 0.9s ease-in infinite; }
+@keyframes drip { from { transform: translateY(-2px); opacity: 1; } to { transform: translateY(6px); opacity: 0.2; } }
+.p.kid.cry .bubble { background: #ffe3ea; }
+.st-emily.out { visibility: hidden; }
+
+/* ---- child card meters ---- */
+.meters { width: 100%; display: flex; flex-direction: column; gap: 6px; margin: 4px 0; }
+.meter { display: flex; align-items: center; gap: 6px; }
+.meter span { font-size: 18px; width: 24px; }
+.meter i { display: block; height: 12px; border-radius: 6px; background: #8fd6a0; min-width: 4px; transition: width 0.5s; }
+.meter.hi i { background: #ff7fa0; }

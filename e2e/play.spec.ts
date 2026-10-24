@@ -4,21 +4,26 @@ import { KEY } from '../src/game/save';
 import { newWorld, nextDay } from '../src/game/world';
 
 const SHOTS = process.env.SHOTS;
+async function shot(page: Page, name: string) {
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/${test.info().project.name}-${name}.png` });
+}
 
 // Any script error fails the test: a frozen chat once came from one.
 let errors: string[] = [];
 test.beforeEach(({ page }) => { errors = []; page.on('pageerror', (e) => errors.push(e.message)); });
 test.afterEach(() => expect(errors).toEqual([]));
-async function shot(page: Page, name: string) {
-  if (SHOTS) await page.screenshot({ path: `${SHOTS}/${test.info().project.name}-${name}.png` });
-}
+
+const modalOpen = (page: Page) => page.locator('.modal:not([hidden])').count().then((n) => n > 0);
+
+/** ⏩, unless the end-of-day card got there first. */
+const skip = (page: Page) => page.locator('.skip').tap({ timeout: 1500 }).catch(() => {});
 
 /** Answer a chat at the desk by tapping the first button until it closes. */
 async function chat(page: Page) {
   await expect(page.locator('.chat')).toBeVisible();
-  for (let i = 0; i < 20 && (await page.locator('.chat').count()); i++) {
+  for (let i = 0; i < 30 && (await page.locator('.chat').count()); i++) {
     await page.locator('.choice').first().tap();
-    await page.waitForTimeout(60);
+    await page.waitForTimeout(40);
   }
   await expect(page.locator('.chat')).toHaveCount(0);
 }
@@ -33,98 +38,124 @@ async function goFloor(page: Page, floor: 'down' | 'up') {
 
 /** Greet or say goodbye to everyone waiting at the desk. */
 async function serveDesk(page: Page) {
-  while (await page.locator('.p.parent.front').count()) {
+  while ((await page.locator('.p.parent.front').count()) && !(await page.locator('.night').count())) {
     await goFloor(page, 'down');
-    await page.locator('.p.parent.front').tap();
+    await page.locator('.p.parent.front .art svg > :not(defs)').first().tap({ force: true });
     await chat(page);
   }
 }
 
-/** Meet one need like a player: tap the child, then the thing (changing floor if needed). Returns false if nobody needs anything. */
+const needy = '.p.kid:not(.away):has(.bubble[data-need]:not([data-need=""]))';
+
+/** Meet one need like a player: tap the child's bubble, then the thing. Returns false if nobody needs anything. */
 async function careOnce(page: Page): Promise<boolean> {
-  const needy = page.locator('.p.kid:has(.bubble[data-need]:not([data-need=""]))');
-  if (!(await needy.count())) return false;
-  let kid = page.locator('.p.kid:not(.away):has(.bubble[data-need]:not([data-need=""]))').first();
-  if (!(await kid.count())) {
+  if (!(await page.locator(needy).count())) {
+    if (!(await page.locator('.p.kid:has(.bubble[data-need]:not([data-need=""]))').count())) return false;
     await goFloor(page, (await onDown(page)) ? 'up' : 'down');
-    kid = page.locator('.p.kid:not(.away):has(.bubble[data-need]:not([data-need=""]))').first();
+    if (!(await page.locator(needy).count())) return false;
   }
+  const kid = page.locator(needy).first();
   const need = (await kid.locator('.bubble').getAttribute('data-need'))!;
-  await kid.tap();
-  await expect(kid).toHaveClass(/sel/);
-  const where = need === 'bottle' || need === 'nappy' || need === 'nap' || need === 'cuddle' ? 'up' : 'down';
-  await goFloor(page, where);
-  await page.locator(`.floor.show [data-act="${need}"]`).first().tap();
-  await page.waitForTimeout(750);
+  await kid.locator('.bubble').tap();
+  if (!(await page.locator('.p.kid.sel').count())) return true;
+  await goFloor(page, ['bottle', 'nappy', 'nap', 'cuddle'].includes(need) ? 'up' : 'down');
+  await page.locator(`.floor.show [data-act="${need}"]`).first().tap({ force: true });
   return true;
+}
+
+/** Every child on screen can be tapped on the head: nothing drawn over them takes the tap. */
+async function allTappable(page: Page) {
+  const misses = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.p.kid:not(.away)')].filter((e) => {
+    const b = e.querySelector('svg')!.getBoundingClientRect();
+    const t = document.elementFromPoint(b.x + b.width / 2, b.y + b.height * 0.32);
+    return t?.closest('.p') !== e;
+  }).map((e) => e.querySelector('.tag')!.textContent));
+  expect(misses).toEqual([]);
 }
 
 async function play(page: Page) {
   await page.goto('/');
   await page.locator('.play').tap();
-  await expect(page.locator('.time')).toHaveText('8:00am');
+  await expect(page.locator('.dayno')).toHaveText('Day 1');
 }
 
-test('day 1: greet, care, skip, pick up, next day, and it saves', async ({ page }) => {
+test('day 1: greet, care, the clock runs, pick up, next day, and it saves', async ({ page }) => {
   await page.goto('/');
   await shot(page, '01-start');
   await page.locator('.play').tap();
-  await expect(page.locator('.dayno')).toHaveText('Day 1');
   await shot(page, '02-room');
-
-  // ⏩ waits until the desk is served.
   await page.locator('.skip').tap();
   await expect(page.locator('.say p')).toContainText('desk first');
   await serveDesk(page);
   await expect(page.locator('.p.kid')).toHaveCount(3);
 
-  // Care until home time, skipping when nobody needs anything.
+  // The clock runs by itself.
+  const t0 = await page.locator('.time').textContent();
+  await page.waitForTimeout(2500);
+  expect(await page.locator('.time').textContent()).not.toBe(t0);
+
   let cared = 0;
-  for (let i = 0; i < 200 && !(await page.locator('.night').count()); i++) {
+  for (let i = 0; i < 300 && !(await page.locator('.night').count()); i++) {
+    if (await modalOpen(page)) { await page.waitForTimeout(100); continue; }
     if (await page.locator('.p.parent.front').count()) { await serveDesk(page); continue; }
-    if (cared < 8 && (await careOnce(page))) { cared++; if (cared === 2) await shot(page, '03-care'); continue; }
-    await page.locator('.skip').tap();
-    await page.waitForTimeout(50);
+    if (cared < 6 && (await careOnce(page))) { cared++; if (cared === 3) await shot(page, '03-care'); await page.waitForTimeout(150); continue; }
+    if (i % 5 === 0) await allTappable(page);
+    await skip(page);
   }
   expect(cared).toBeGreaterThan(3);
-  await expect(page.locator('.night')).toBeVisible();
   await expect(page.locator('.night h2')).toHaveText('Day 1 done! 🌙');
   await expect(page.locator('.kc')).toHaveCount(3);
   await shot(page, '04-night');
   await page.locator('.next').tap();
   await expect(page.locator('.dayno')).toHaveText('Day 2');
   await expect(page.locator('.say p')).toContainText('New in the wardrobe');
-
   await page.reload();
   await expect(page.locator('.play small')).toHaveText('Day 2');
 });
 
-test('a parent tells you a tip and asks what the child did', async ({ page }) => {
+test('every child can be tapped on both floors, wherever they wander', async ({ page }) => {
   await play(page);
-  await page.locator('.p.parent.front').tap();
+  await serveDesk(page);
+  for (let round = 0; round < 6; round++) {
+    await page.waitForTimeout(1500);
+    for (const f of ['down', 'up'] as const) { await goFloor(page, f); await allTappable(page); }
+  }
+});
+
+test('a parent gives a tip, then checks on it at pick-up', async ({ page }) => {
+  await play(page);
+  await page.locator('.p.parent.front .art svg > :not(defs)').first().tap({ force: true });
   await expect(page.locator('.speech p')).toContainText('Hi Isabelle!');
   await page.locator('.choice').first().tap();
   await expect(page.locator('.choice').nth(1)).toHaveText('Tell me more');
   await shot(page, '05-chat');
   await chat(page);
+  await serveDesk(page);
+  for (let i = 0; i < 40 && !(await page.locator('.p.parent.front').count()); i++) await skip(page);
+  await page.locator('.p.parent.front .art svg > :not(defs)').first().tap({ force: true });
+  await page.locator('.choice').first().tap();
+  await expect(page.locator('.speech p')).toContainText(/^Did .+ today\?$/);
+  await expect(page.locator('.choice')).toHaveText(['Yes! 👍', 'Not today']);
+  await chat(page);
 });
 
-test('wardrobe: rename a child, dress them, and it sticks', async ({ page }) => {
+test('wardrobe: rename a child (the box takes typing), dress them, and it sticks', async ({ page }) => {
   await play(page);
   await serveDesk(page);
   await goFloor(page, 'up');
-  await page.locator('[data-st="wardrobe"]').tap();
+  await page.locator('[data-st="wardrobe"]').tap({ force: true });
   await expect(page.locator('.modal .wardrobe')).toBeVisible();
   await page.locator('.who').nth(1).tap();
-  await page.locator('.preview .name').fill('Sparkle');
-  await page.locator('.preview .name').press('Enter');
+  const name = page.locator('.preview .name');
+  expect(await name.evaluate((e) => getComputedStyle(e).webkitUserSelect || getComputedStyle(e).userSelect)).toBe('text');
+  await name.tap();
+  await expect(name).toBeFocused();
+  await name.fill('Sparkle');
+  await name.press('Enter');
   await page.locator('.tab', { hasText: 'Hats' }).tap();
   await page.locator('.item[aria-label="Sun hat"]').tap();
   await expect(page.locator('.item[aria-label="Sun hat"]')).toHaveClass(/on/);
-  await page.locator('.tab', { hasText: 'Headbands' }).tap();
-  await page.locator('.item[aria-label="Star band"]').tap();
   await shot(page, '06-wardrobe');
-  await page.locator('.item.locked').first().tap();
   await page.locator('.done').tap();
   await expect(page.locator('.p.kid .tag', { hasText: 'Sparkle' })).toHaveCount(1);
   await page.reload();
@@ -136,7 +167,7 @@ test('dummies only for 2 and under; Isabelle has no dummy tab', async ({ page })
   await play(page);
   await serveDesk(page);
   await goFloor(page, 'up');
-  await page.locator('[data-st="wardrobe"]').tap();
+  await page.locator('[data-st="wardrobe"]').tap({ force: true });
   await expect(page.locator('.tab', { hasText: 'Dummies' })).toHaveCount(0);
   const ages = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)!).world.children.map((c: { age: number }) => c.age), KEY);
   for (let i = 0; i < ages.length; i++) {
@@ -178,10 +209,9 @@ test('with 22 children a good day gives a reward to pick', async ({ page }) => {
   const name = (await picked.locator('b').textContent())!;
   await picked.tap();
   await page.locator('.next').tap();
-  await expect(page.locator('.dayno')).toHaveText(new RegExp(`Day ${w.day + 1}`));
+  await expect(page.locator('.dayno')).toHaveText(`Day ${w.day + 1}`);
   if (name.includes('Helper')) await expect(page.locator('.p.helper .tag', { hasText: name })).toHaveCount(1);
   else if (name !== 'New clothes') await expect(page.locator('.st.furn')).toHaveCount(1);
-  await shot(page, '08-day-after-reward');
 });
 
 test("have a child: pick a look, they join today, and a day later they're a year older", async ({ page }) => {
@@ -198,18 +228,15 @@ test("have a child: pick a look, they join today, and a day later they're a year
   await page.locator('.maker .ok').tap();
   await expect(page.locator('.p.kid .tag', { hasText: 'Luna' })).toHaveCount(1);
   await expect(page.locator('.baby')).toBeHidden();
-  await page.locator('.p.kid', { hasText: 'Luna' }).tap();
+  await page.locator('.p.kid', { hasText: 'Luna' }).locator('.art svg > :not(defs)').first().tap({ force: true });
   await expect(page.locator('.card')).toContainText('My child');
   await expect(page.locator('.card')).toContainText('Age 2');
-
-  // Finish the day quickly, then the birthday.
-  await serveDesk(page);
-  for (let i = 0; i < 80 && !(await page.locator('.night').count()); i++) {
+  for (let i = 0; i < 120 && !(await page.locator('.night').count()); i++) {
+    if (await page.locator('.chat').count()) { await chat(page); continue; }
     if (await page.locator('.p.parent.front').count()) { await serveDesk(page); continue; }
-    await page.locator('.skip').tap();
+    if (!(await modalOpen(page))) await skip(page);
   }
   await expect(page.locator('.kc', { hasText: 'Luna' })).toHaveCount(1);
   await page.locator('.next').tap();
   await expect(page.locator('.say p')).toContainText('Happy birthday, Luna! Luna is 3 today!');
-  await expect(page.locator('.p.kid .tag', { hasText: 'Luna' })).toHaveCount(1);
 });

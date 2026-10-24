@@ -18,9 +18,9 @@ export function shuffle<T>(rng: Rng, a: readonly T[]): T[] {
 export type Outfit = Record<Cat, string>;
 export type Look = { skin: string; hair: string; hairColor: string; outfit: Outfit };
 export type Child = Look & { id: number; name: string; age: number; pers: Personality; fam: number };
-export type Family = { id: number; kids: number[]; mum: Look; dad: Look; visits: number };
+export type Family = { id: number; kids: number[]; mum: Look; dad: Look; visits: number; last?: { day: number; hearts: Record<number, number> } };
 export type World = {
-  v: 1; day: number; nextId: number; families: Family[]; children: Child[]; unlocked: string[];
+  v: 2; day: number; nextId: number; families: Family[]; children: Child[]; unlocked: string[];
   isabelle: Look; helpers: HelperId[]; furniture: FurnId[]; muted: boolean;
   /** Isabelle's own child, if she has one. */
   own?: number;
@@ -57,7 +57,7 @@ const adult = (rng: Rng, hair: string): Look => ({ skin: pick(rng, SKINS), hair,
 
 export function newWorld(rng: Rng = Math.random): World {
   const w: World = {
-    v: 1, day: 1, nextId: 1, families: [], children: [], unlocked: [...STARTER], helpers: [], furniture: [], muted: false,
+    v: 2, day: 1, nextId: 1, families: [], children: [], unlocked: [...STARTER], helpers: [], furniture: [], muted: false,
     isabelle: { skin: SKINS[0], hair: 'long', hairColor: '#6b4226', outfit: { hat: 'hat0', headband: 'headband1', dummy: 'dummy0', top: 'top0', bottoms: 'bottoms1', shoes: 'shoes1' } },
   };
   addFamily(w, rng, 2);
