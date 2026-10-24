@@ -63,7 +63,8 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 
 /* Room */
 .room { position: absolute; left: 220px; top: 0; width: 1060px; height: 690px; overflow: hidden; }
-.floor { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity 0.35s; }
+/* z-index 0 keeps each floor's furniture layering inside the floor, under the people (z 1): a chair once hid children. */
+.floor { position: absolute; inset: 0; z-index: 0; opacity: 0; pointer-events: none; transition: opacity 0.35s; }
 .floor.show { opacity: 1; pointer-events: auto; }
 .wall { position: absolute; left: 0; top: 0; right: 0; height: 400px; }
 .ground { position: absolute; left: 0; top: 400px; right: 0; bottom: 0; }

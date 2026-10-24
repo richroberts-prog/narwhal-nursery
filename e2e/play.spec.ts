@@ -65,11 +65,13 @@ async function careOnce(page: Page): Promise<boolean> {
 
 /** Every child on screen can be tapped on the head: nothing drawn over them takes the tap. */
 async function allTappable(page: Page) {
-  const misses = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.p.kid:not(.away)')].filter((e) => {
-    const b = e.querySelector('svg')!.getBoundingClientRect();
-    const t = document.elementFromPoint(b.x + b.width / 2, b.y + b.height * 0.32);
-    return t?.closest('.p') !== e;
-  }).map((e) => e.querySelector('.tag')!.textContent));
+  const misses = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.p.kid:not(.away)')].map((e) => {
+    // The middle of the face, wherever the pose puts it.
+    const b = e.querySelector('svg circle[r="22"]')!.getBoundingClientRect();
+    const t = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
+    const on = t?.closest('.p');
+    return on === e ? null : `${e.querySelector('.tag')!.textContent} under ${(on as HTMLElement | null)?.dataset.key ?? t?.className}`;
+  }).filter(Boolean));
   expect(misses).toEqual([]);
 }
 
