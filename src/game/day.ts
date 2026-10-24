@@ -199,21 +199,25 @@ export class Day {
     return events;
   }
 
-  /** A child left to themselves plays with something on their floor, chats to a friend, or wanders. */
+  /** A child left to themselves mostly plays with something in their room, or chats to a friend, now and then wanders. */
   private ownIdea(k: DayKid, c: Child): Event {
     const fun = allowed(c.age).filter((a) => FUN.includes(a) && ACTS[a].floor === k.floor);
-    if (fun.length && k.m.fun >= 40 && this.rng() < 0.6) {
+    if (fun.length && k.m.fun >= 20 && this.rng() < 0.75) {
       const fav = favourite(c.pers, c.age);
       const act = fun.includes(fav) && this.rng() < 0.5 ? fav : pick(this.rng, fun);
-      k.m.fun = Math.max(0, k.m.fun - 35);
+      k.m.fun = Math.max(0, k.m.fun - 30);
       k.busyUntil = this.s.t + 15;
       k.did.push(act);
       return { type: 'selfplay', kid: k.id, act };
     }
-    const friends = this.present().filter((o) => o !== k && o.floor === k.floor && !this.asleep(o) && this.child(o.id).age >= 2);
-    if (c.age >= 2 && friends.length && this.rng() < 0.3) {
+    const friends = this.present().filter((o) => o !== k && o.floor === k.floor && !this.asleep(o) && !this.busy(o) && this.child(o.id).age >= 2);
+    if (c.age >= 2 && friends.length && this.rng() < 0.55) {
+      const friend = pick(this.rng, friends);
+      // A chat lasts a little while: both stay together for it.
       k.m.love = Math.max(0, k.m.love - 10);
-      return { type: 'chat', kid: k.id, with: pick(this.rng, friends).id };
+      friend.m.love = Math.max(0, friend.m.love - 10);
+      k.busyUntil = friend.busyUntil = this.s.t + 6;
+      return { type: 'chat', kid: k.id, with: friend.id };
     }
     return { type: 'wander', kid: k.id };
   }
@@ -333,7 +337,7 @@ export class Day {
     if (k) {
       const a = ACTS[this.needAct(k)];
       const name = this.child(k.id).name;
-      return `${name} ${this.mood(k) === 'cry' ? 'is crying and' : ''} wants ${a.want}! Try the ${a.place} ${a.floor === 'up' ? 'upstairs' : 'downstairs'}.`.replace('  ', ' ');
+      return `${name} ${this.mood(k) === 'cry' ? 'is crying and' : ''} wants ${a.want}! Try the ${a.place} in the ${a.floor === 'up' ? 'baby room' : 'play room'}.`.replace('  ', ' ');
     }
     if (!this.present().length) return this.s.t < CLOSE ? 'Nobody is here yet. Tap ⏩ to move the clock on.' : 'Everyone has gone home!';
     return 'Everyone is happy! Do something fun with them.';

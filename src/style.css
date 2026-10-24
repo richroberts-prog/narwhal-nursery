@@ -23,8 +23,8 @@ img { -webkit-user-drag: none; }
 
 /* The painted room: drawn in painting pixels (1376 x 768) and scaled to the stage's width. */
 .room { position: absolute; left: 0; top: 0; transform-origin: 0 0; transform: scale(0.9302); overflow: hidden; }
-.room .bg { position: absolute; inset: 0; width: 100%; height: 100%; display: none; }
-.room .bg.show { display: block; }
+.room .bg { display: none !important; }
+.room .room3d { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .zones, .people, .fx { position: absolute; inset: 0; }
 .st { position: absolute; display: none; border-radius: 18px; }
 .st.show { display: block; }
@@ -52,7 +52,7 @@ img { -webkit-user-drag: none; }
 .p .tag { position: absolute; left: 50%; bottom: -16px; transform: translateX(-50%); white-space: nowrap; font-size: calc(16px * max(0.75, var(--crowd, 1))); font-weight: 800; background: #fffd; border-radius: 10px; padding: 1px 8px; pointer-events: none; }
 .p.parent.more { display: none; }
 .p.parent.front .art { animation: bob 0.9s ease-in-out infinite alternate; }
-.p.kid.sel .art { filter: drop-shadow(0 0 6px #ff4f86) drop-shadow(0 0 3px #fff); }
+.p.kid.sel::before { content: ''; position: absolute; left: 10%; right: 10%; bottom: -10px; height: 26px; border-radius: 50%; background: radial-gradient(closest-side, #ff4f86cc, #ff4f8655 60%, transparent); }
 .p.walking .art { animation: hop 0.3s ease-in-out infinite alternate; }
 .p.kid.cry .art { animation: sob 0.35s ease-in-out infinite alternate; }
 .p.kid.laugh .art { animation: bob 0.25s ease-in-out infinite alternate; }
@@ -214,3 +214,15 @@ img { -webkit-user-drag: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* People in menus are 3D pictures: keep their shape inside the old doll box. */
+.doll.fig > img { object-fit: contain; object-position: center bottom; }
+.face-picks { display: flex; flex-direction: column; gap: 10px; padding: 4px 6px; }
+.face-row { display: flex; align-items: center; gap: 10px; }
+.face-row > span { width: 130px; flex: none; font-weight: 800; font-size: 17px; }
+.face-row > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.face-row .pill { padding: 7px 13px; border-radius: 14px; border: 0; background: #efe7f7; font: 800 16px inherit; color: inherit; }
+.face-row .pill.on { background: #a78bfa; color: #fff; }
+.p.carried .tag, .p.carried .bubble { visibility: hidden; }
+/* A chatting child's words, in a speech bubble. */
+.p .bubble.words { width: auto; min-width: calc(54px * var(--b)); max-width: 230px; height: auto; padding: 6px 12px; border-radius: 18px; font-size: calc(17px * var(--b)); font-weight: 800; line-height: 1.15; white-space: normal; text-align: center; top: auto; bottom: 100%; margin-bottom: 8px; z-index: 2; }

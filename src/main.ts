@@ -2,13 +2,16 @@
 import './style.css';
 import { ACTS, Act, FURNITURE, Floor, HELPERS, HelperId, PERSONALITIES, Personality, favourite } from './game/catalog';
 import { CLOSE, Day, DayKid, Event, MAX_HEARTS, METERS, METER_INFO, SPEED, WANT, Wish, clock, newDay } from './game/day';
-import { HAIR, HAIR_COLOURS, ITEM, Kind, Look, NEEDED, SKIN_TONES, SLOTS, SLOT_LABEL, Sex, Slot, fits, itemsFor, kindOf, randomLook, regrow } from './game/looks';
+import { FaceLook, HAIR, HAIR_COLOURS, ITEM, Kind, Look, NEEDED, SKIN_TONES, SLOTS, SLOT_LABEL, Sex, Slot, fits, itemsFor, kindOf, randomLook, regrow } from './game/looks';
 import { load, save, wipe } from './game/save';
-import { checkTip, didLabel, heartsLine, hello, homeTalk, reaction, smallTalk, tip, tipAnswer, tipMore, yesterday } from './game/talk';
+import { checkTip, didLabel, heartsLine, hello, homeTalk, kidTalk, reaction, smallTalk, tip, tipAnswer, tipMore, yesterday } from './game/talk';
 import { Child, Family, GROWN_UP, NewChild, OWN, Reward, World, earnsReward, familyName, haveChild, matchFamilies, newWorld, nextDay, ownChild, ownIsHelper, rewardChoices, takeReward, unlockSome } from './game/world';
-import { Mood, doll, dollBox, lyingDoll, sprite } from './ui/dolls';
-import { DOOR, EMILY_SPOT, FRONTS, HOME_SPOT, PLAY_AREA, QUEUE, ROOM_H, ROOM_W, SIZES, STATIONS, Station, furnitureStations } from './ui/room';
+import { Mood, dollBox, figureHeight } from './ui/dolls';
+import { figure, grownUp, lookKey } from './ui/figures';
+import { DOOR, EMILY_SPOT, FRONTS, FRONT_DOOR, insideFrom, HOME_SPOT, PLAY_AREA, QUEUE, ROOM_H, ROOM_W, SIZES, STATIONS, Station, furnitureStations } from './ui/room';
 import { actSound, setMuted, sfx, startMusic } from './ui/sound';
+import { EYE_COLOURS, grownUpSpec, specFromLook } from './ui/three/people';
+import { Entry, carry, isCarried, mount, setStations, setView, sync } from './ui/three/world3d';
 
 const store = (() => { try { return window.localStorage; } catch { return null; } })();
 const app = document.getElementById('app')!;
@@ -21,7 +24,7 @@ let view: Floor = 'down';
 let sel: number | null = null;
 let busy = false;
 const me: Record<Floor, { x: number; y: number }> = { down: { x: HOME_SPOT.down[0], y: HOME_SPOT.down[1] }, up: { x: HOME_SPOT.up[0], y: HOME_SPOT.up[1] } };
-const HELPER_SPOTS: Record<Floor, [number, number][]> = { down: [[520, 640], [770, 650], [400, 655], [660, 645]], up: [[470, 705], [1010, 700], [760, 705], [330, 730]] };
+const HELPER_SPOTS: Record<Floor, [number, number][]> = { down: [[560, 640], [790, 650], [440, 660], [680, 645]], up: [[470, 705], [1010, 700], [760, 705], [330, 730]] };
 
 function persist() { save(store, { world: w, today: day?.s ?? null }); }
 const famOf = (id: number): Family => w.families.find((f) => f.id === id)!;
@@ -31,7 +34,7 @@ const stations = (): Station[] => [...STATIONS, ...furnitureStations(w.furniture
 
 app.innerHTML = `<div id="stage">
   <main class="room">
-    <img class="bg" data-floor="down" src="art/room-down.webp" alt=""><img class="bg" data-floor="up" src="art/room-up.webp" alt="">
+    <div class="bg" data-floor="down"></div><div class="bg" data-floor="up"></div>
     <div class="zones"></div><div class="people"></div><div class="light"></div><div class="fx"></div>
   </main>
   <aside class="hud">
@@ -68,10 +71,10 @@ fit();
 function drawZones() {
   zonesEl.innerHTML = stations().map((s) => {
     const [x0, y0, x1, y1] = s.zone;
-    const art = s.kind === 'furn' ? `<img src="art/rewards/${s.id.slice(5)}.webp" alt="">` : '';
     return `<button class="st ${s.kind ? `st-${s.kind}` : ''}" data-st="${s.id}" data-floor="${s.floor}" ${s.act ? `data-act="${s.act}"` : ''} aria-label="${esc(s.label)}"
-      style="left:${x0}px;top:${y0}px;width:${x1 - x0}px;height:${y1 - y0}px">${art}<span class="label">${s.label}</span><span class="badge" hidden></span></button>`;
+      style="left:${x0}px;top:${y0}px;width:${x1 - x0}px;height:${y1 - y0}px"><span class="label">${s.label}</span><span class="badge" hidden></span></button>`;
   }).join('');
+  setStations(stations());
 }
 
 room.addEventListener('click', (e) => {
@@ -87,10 +90,14 @@ room.addEventListener('click', (e) => {
 
 // ---------- talking ----------
 
+/** A child (or Isabelle) as a picture for the menus. */
+const pic = (l: Look, age: number | 'adult', mood: Mood = 'happy', h?: number) =>
+  figure(l, age, mood, h, 'id' in l ? (l as Child).id : 1, 'sex' in l ? (l as Child).sex : 'girl');
+
 function say(who: 'isabelle' | 'emily', text: string) {
   const bar = app.querySelector('.say')!;
   const face = bar.querySelector<HTMLElement>('.face')!;
-  face.innerHTML = who === 'emily' ? sprite('staff/emily', SIZES.staff.emily, 300) : doll(w.isabelle, 'adult');
+  face.innerHTML = who === 'emily' ? grownUp('emily', 300) : pic(w.isabelle, 'adult');
   face.dataset.who = who;
   bar.querySelector('p')!.innerHTML = `<b>${who === 'emily' ? 'Emily' : 'Isabelle'}:</b> ${esc(text)}`;
   bar.classList.remove('flash');
@@ -112,6 +119,10 @@ function fx(text: string, x: number, y: number, cls = '') {
 
 /** Real-time bits the rules don't need: who is chatting, who is mid-walk, where Emily has gone. */
 const chatting = new Map<number, number>();
+/** Who each chatting child is talking to, and what they say. */
+const talking = new Map<number, { with: number; line: string }>();
+/** Children just dropped off: they walk in through the front door. */
+const justIn = new Set<number>();
 const lastPos = new Map<string, string>();
 let emilyTrip: { x: number; y: number; back: number; home: number } | null = null;
 let lastCrySound = 0;
@@ -129,7 +140,7 @@ function el(key: string, art: () => string, artKey: string, cls: string): HTMLEl
     e.innerHTML = `<div class="art"></div><div class="hit"></div><div class="bubble" hidden></div><div class="tag"></div>`;
   }
   e.className = `p ${cls}`;
-  if (e.dataset.art !== artKey) { e.querySelector('.art')!.innerHTML = art(); e.dataset.art = artKey; }
+  void art; e.dataset.art = artKey;
   return e;
 }
 
@@ -176,7 +187,7 @@ const tooClose = (a: DayKid, b: DayKid, c: number, h: number) => {
   const dx = Math.abs(a.x - b.x), dy = Math.abs(a.y - b.y) / h;
   return c < 0.85 ? (dx < 60 * c && dy < 90 * c) || (dx < 25 * c && dy < 150 * c) : dx < 60 * c && dy < 150 * c;
 };
-/** How tall the children on a floor are: upstairs babies sit, so they need less room in front. */
+/** How tall the children on a floor are: babies in the baby room sit, so they need less room in front. */
 const tall = (floor: Floor) => (floor === 'up' ? 0.6 : 1);
 
 /** Whatever moved them, nobody stays standing on top of someone else. */
@@ -191,6 +202,9 @@ function spreadOut() {
   }
 }
 
+/** Inside the building: the play room starts past the glass front wall; the baby room past the archway. */
+const X_RANGE: Record<Floor, [number, number]> = { down: [0, 1190], up: [0, 1160] };
+
 /** Step aside from anyone already standing here, so no child ever hides right behind another; a busy floor fills a second row. */
 function makeRoom(k: DayKid) {
   const others = standing(k.floor).filter((o) => o !== k);
@@ -204,7 +218,7 @@ function makeRoom(k: DayKid) {
   const spots: [number, number][] = [];
   if (c < 0.85) {
     for (let r = 0, y = 760; y >= 560; r++, y -= 100 * c * h) {
-      for (let x = 70 + (r % 2) * 31 * c; x <= 1150; x += 62 * c) spots.push([x, y]);
+      for (let x = insideFrom(k.floor, y) + (r % 2) * 31 * c; x <= X_RANGE[k.floor][1]; x += 62 * c) spots.push([x, y]);
     }
     spots.sort((a, b) => Math.hypot(a[0] - x0, (a[1] - y0) * 2) - Math.hypot(b[0] - x0, (b[1] - y0) * 2));
   } else {
@@ -213,7 +227,7 @@ function makeRoom(k: DayKid) {
       // Out from where they wanted to be, both ways, right across the floor.
       for (let i = 0; i <= 2 * Math.ceil(1080 / (62 * c)); i++) {
         const x = x0 + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 62 * c;
-        if (x >= 70 && x <= 1150) spots.push([x, y]);
+        if (x >= insideFrom(k.floor, y) && x <= X_RANGE[k.floor][1]) spots.push([x, y]);
       }
     }
   }
@@ -227,7 +241,6 @@ function makeRoom(k: DayKid) {
   k.x = best.x; k.y = best.y; // the whole floor is full: the least crowded spot
 }
 
-const lookKey = (l: Look) => `${l.skin}|${l.hair}|${l.hairColor}|${Object.values(l.outfit).join(',')}`;
 const bedOf = (k: DayKid) => (k.at.startsWith('bed:') ? stations().flatMap((s) => s.beds ?? []).find((b) => b.id === k.at.slice(4)) ?? null : null);
 
 function render() {
@@ -247,36 +260,22 @@ function render() {
   const seen = new Set<string>();
   const mark = (e: HTMLElement) => { seen.add(e.dataset.key!); return e; };
 
-  // Front pieces of the painting (cots, desk, chest), layered with people by depth.
-  for (const f of ['down', 'up'] as Floor[]) {
-    for (const fr of FRONTS[f]) {
-      const key = `front-${f}-${fr.id}`;
-      let e = peopleEl.querySelector<HTMLElement>(`[data-key="${key}"]`);
-      if (!e) {
-        e = document.createElement('img');
-        e.dataset.key = key;
-        e.className = 'front';
-        (e as HTMLImageElement).src = `art/${key}.webp`;
-        e.setAttribute('style', `left:${fr.x}px;top:${fr.y}px;width:${fr.w}px;height:${fr.h}px;z-index:${fr.z}`);
-        peopleEl.appendChild(e);
-      }
-      e.classList.toggle('away', f !== view);
-      seen.add(key);
-    }
-  }
+  const drawn: Entry[] = [];
 
   // Isabelle.
-  const isa = mark(el('isabelle', () => doll(w.isabelle, 'adult'), lookKey(w.isabelle), 'isabelle'));
+  const isa = mark(el('isabelle', () => '', lookKey(w.isabelle), 'isabelle'));
   place(isa, me[view].x, me[view].y, dollBox('adult', 300 * depth(me[view].y)), view);
+  drawn.push({ key: 'isabelle', spec: () => specFromLook(w.isabelle, 'adult', 1), specKey: lookKey(w.isabelle), x: me[view].x, y: me[view].y, hPx: 300 * depth(me[view].y), floor: view, mood: 'happy' });
   isa.querySelector('.tag')!.textContent = 'Isabelle';
 
   // Emily: behind the desk, or out helping a child.
   if (emilyTrip && now > emilyTrip.home) emilyTrip = null;
   const atDesk = !emilyTrip || now > emilyTrip.back;
-  const em = mark(el('emily', () => sprite('staff/emily', SIZES.staff.emily, 300), 'emily', 'emily'));
+  const em = mark(el('emily', () => '', 'emily', 'emily'));
   const [ex, ey] = !emilyTrip ? EMILY_SPOT : atDesk ? [EMILY_SPOT[0] + 60, 640] : [emilyTrip.x, emilyTrip.y];
   const eh = 300 * (emilyTrip ? depth(ey) : 1);
   place(em, ex, ey, [(eh * SIZES.staff.emily[0]) / SIZES.staff.emily[1], eh, 0], 'down');
+  drawn.push({ key: 'emily', spec: () => grownUpSpec('emily'), specKey: 'emily', x: ex, y: ey, hPx: eh, floor: 'down', mood: 'happy' });
   em.querySelector('.tag')!.textContent = 'Emily';
 
   // The line at the desk, front first.
@@ -284,7 +283,7 @@ function render() {
     const f = day.fam(famId);
     const src = famOf(famId)[f.parent];
     const size = SIZES.parents[src];
-    const e = mark(el(`fam${famId}`, () => sprite(`parents/${src}`, size, 300), src, `parent ${i === 0 ? 'front' : ''}`));
+    const e = mark(el(`fam${famId}`, () => '', src, `parent ${i === 0 ? 'front' : ''}`));
     e.dataset.fam = String(famId);
     const [qx, qy] = QUEUE[Math.min(i, QUEUE.length - 1)];
     const h = 300 * depth(qy);
@@ -292,6 +291,7 @@ function render() {
     if (!e.dataset.placed) { place(e, DOOR[0], DOOR[1], box, 'down'); e.dataset.placed = '1'; void e.offsetWidth; }
     place(e, qx, qy, box, 'down', i === 0 ? qy + 400 : qy);
     e.classList.toggle('more', i >= QUEUE.length);
+    if (i < QUEUE.length) drawn.push({ key: `fam${famId}`, spec: () => grownUpSpec(src), specKey: src, x: qx, y: qy, hPx: h, floor: 'down', mood: 'happy', from: { x: DOOR[0], y: DOOR[1], floor: 'down' } });
     e.querySelector('.tag')!.textContent = `${familyName(w, famOf(famId))}'s ${f.parent}`;
     const b = e.querySelector<HTMLElement>('.bubble')!;
     b.hidden = i !== 0;
@@ -305,15 +305,17 @@ function render() {
     const [x, y] = HELPER_SPOTS[hp.floor][used[hp.floor]++];
     const size = SIZES.helpers[hId];
     const h = 300 * depth(y);
-    const e = mark(el(`helper-${hId}`, () => sprite(`helpers/${hId}`, size, h), `${hId}${h}`, 'helper'));
+    const e = mark(el(`helper-${hId}`, () => '', `${hId}${h}`, 'helper'));
     place(e, x, y, [(h * size[0]) / size[1], h, 0], hp.floor);
+    drawn.push({ key: `helper-${hId}`, spec: () => grownUpSpec(hId), specKey: hId, x, y, hPx: h, floor: hp.floor, mood: 'happy' });
     e.querySelector('.tag')!.textContent = `${hp.e} ${hp.name}`;
   }
   const own = ownChild(w);
   if (own && ownIsHelper(w)) {
     const [x, y] = HELPER_SPOTS.down[used.down];
-    const e = mark(el('own-helper', () => doll(own, own.age), lookKey(own), 'helper'));
+    const e = mark(el('own-helper', () => '', lookKey(own), 'helper'));
     place(e, x, y, dollBox(own.age, 300 * depth(y)), 'down');
+    drawn.push({ key: 'own-helper', spec: () => specFromLook(own, own.age, own.id, own.sex), specKey: `${lookKey(own)}|${own.age}`, x, y, hPx: figureHeight(own.age) * depth(y), floor: 'down', mood: 'happy' });
     e.querySelector('.tag')!.textContent = `💖 ${own.name} (helper)`;
   }
   app.querySelector<HTMLElement>('.baby')!.hidden = !!own;
@@ -330,7 +332,7 @@ function render() {
     const bed = asleep ? bedOf(k) : null;
     const lying = asleep && (!!bed || k.floorNap);
     const length = bed ? bed.length : 150;
-    const e = mark(el(`kid${k.id}`, () => (lying ? lyingDoll(c, c.age, length) : doll(c, c.age, mood)), `${lookKey(c)}|${c.age}|${mood}|${lying ? length : ''}`,
+    const e = mark(el(`kid${k.id}`, () => '', `${lookKey(c)}|${c.age}|${mood}|${lying ? length : ''}`,
       `kid ${sel === k.id ? 'sel' : ''} ${lying ? 'lying' : ''} ${mood}`));
     e.dataset.kid = String(k.id);
     const need = day.need(k);
@@ -344,11 +346,23 @@ function render() {
       place(e, k.x, k.y, [bw * sc, bh * sc, feet * sc], k.floor, k.y);
       e.style.setProperty('--crowd', String(crowd(k.floor)));
     }
+    drawn.push({
+      key: `kid${k.id}`, spec: () => specFromLook(c, c.age, c.id, c.sex), specKey: `${lookKey(c)}|${c.age}|${c.sex}`,
+      x: k.x, y: k.y, hPx: figureHeight(c.age) * depth(k.y) * crowd(k.floor), floor: k.floor, mood,
+      bed: lying && bed ? bed.id : null, floorNap: lying && !bed, sit: c.age === 0,
+      act: !asleep && day.busy(k) ? stations().find((st) => st.id === k.at)?.act ?? null : null, at: k.at,
+      talkTo: (chatting.get(k.id) ?? 0) > now && talking.has(k.id) ? `kid${talking.get(k.id)!.with}` : null,
+      from: justIn.has(k.id) ? { x: FRONT_DOOR[0], y: FRONT_DOOR[1], floor: 'down' } : undefined,
+    });
+    justIn.delete(k.id);
+    e.classList.toggle('carried', isCarried(`kid${k.id}`));
     e.querySelector('.tag')!.textContent = `${c.fam === OWN ? '💖' : ''}${PERSONALITIES[c.pers].e} ${c.name}`;
     const b = e.querySelector<HTMLElement>('.bubble')!;
-    const talking = (chatting.get(k.id) ?? 0) > now;
-    b.hidden = !need && !asleep && !talking;
-    b.textContent = asleep ? '💤' : need ? ACTS[day.needAct(k)].e : '💬';
+    const talkingNow = (chatting.get(k.id) ?? 0) > now;
+    b.hidden = !need && !asleep && !talkingNow;
+    const words = talking.get(k.id);
+    b.textContent = asleep ? '💤' : need ? ACTS[day.needAct(k)].e : talkingNow && words ? words.line : '💬';
+    b.classList.toggle('words', !asleep && !need && talkingNow && !!words);
     b.dataset.need = asleep || !need ? '' : day.needAct(k);
     b.classList.toggle('late', mood === 'cry');
   }
@@ -364,6 +378,8 @@ function render() {
     badge.hidden = !needs && !desk;
     badge.textContent = `${desk ? '🔔' : ''}${needs ? ` ${needs} ❗` : ''}`.trim();
   }
+  setView(view);
+  sync(drawn);
   sideCard();
 }
 
@@ -416,7 +432,7 @@ function tapKid(id: number) {
     else if (need) {
       const a = ACTS[day.needAct(k)];
       const crying = day.mood(k) === 'cry' ? `${c.name} is crying! ` : '';
-      say('isabelle', `${crying}${c.name} wants ${a.want}. Tap the ${a.place}${a.floor !== view ? ` ${a.floor === 'up' ? 'upstairs' : 'downstairs'}` : ''}.`);
+      say('isabelle', `${crying}${c.name} wants ${a.want}. Tap the ${a.place}${a.floor !== view ? ` in the ${a.floor === 'up' ? 'baby room' : 'play room'}` : ''}.`);
     } else say('isabelle', `${c.name} is happy! Let's do something fun.`);
   }
   render();
@@ -440,9 +456,10 @@ function switchFloor() {
     const k = day.kid(sel);
     k.floor = view;
     k.at = '';
-    k.x = stairs.kx - 110;
+    k.x = stairs.kx + (view === 'up' ? 70 : -110);
     k.y = stairs.ky - 10;
-    say('isabelle', `Come on, ${day.child(sel).name}! ${view === 'up' ? 'Up' : 'Down'} we go!`);
+    carry(`kid${sel}`);
+    say('isabelle', `Come on, ${day.child(sel).name}! To the ${view === 'up' ? 'baby room' : 'play room'}!`);
   }
   persist();
   render();
@@ -485,6 +502,7 @@ function doAct(id: number, st: Station) {
   }
   const k = day.kid(id);
   moveKidTo(k, st);
+  carry(`kid${id}`);
   me[view] = { x: Math.min(1180, st.kx + 90), y: Math.max(st.ky + 40, 640) };
   sel = null;
   actSound(st.act!);
@@ -527,8 +545,13 @@ function handleEvents(events: Event[]) {
         makeRoom(k);
       } else homeSpot(k);
     } else if (ev.type === 'chat') {
-      chatting.set(ev.kid, now + 2500);
-      chatting.set(ev.with, now + 2500);
+      const f = day.kid(ev.with);
+      if (sel !== f.id && f.floor === k.floor) { f.x = k.x + 70 * crowd(k.floor); f.y = k.y; f.at = ''; }
+      const [a, b] = kidTalk(Math.random, day.child(k.id), day.child(f.id));
+      talking.set(k.id, { with: f.id, line: a });
+      talking.set(f.id, { with: k.id, line: b });
+      chatting.set(ev.kid, now + 4500);
+      chatting.set(ev.with, now + 4500);
     } else if (ev.type === 'doze') {
       if (sel === k.id) sel = null;
       if (k.floor === view) fx('💤', k.x, k.y - 80);
@@ -536,7 +559,7 @@ function handleEvents(events: Event[]) {
       if (now - lastCrySound > 4000) { sfx.cry(); lastCrySound = now; }
       if (k.floor !== view && now - lastCryNote > 20000) {
         lastCryNote = now;
-        say('emily', `${day.child(k.id).name} is crying ${k.floor === 'up' ? 'upstairs' : 'downstairs'}!`);
+        say('emily', `${day.child(k.id).name} is crying in the ${k.floor === 'up' ? 'baby room' : 'play room'}!`);
       }
     }
   }
@@ -595,9 +618,9 @@ function openChat(parent: string, kids: Child[], who: string) {
   modal.hidden = false;
   modal.innerHTML = `<div class="chat">
     <div class="scene">
-      <div class="side-a"><div class="big">${sprite(`parents/${parent}`, SIZES.parents[parent], 290)}</div>${kids.map((c) => `<div class="small">${doll(c, c.age, 'happy', c.age === 0 ? 110 : 150)}<span>${esc(c.name)}</span></div>`).join('')}</div>
+      <div class="side-a"><div class="big">${grownUp(parent, 290)}</div>${kids.map((c) => `<div class="small">${pic(c, c.age, 'happy', c.age === 0 ? 110 : 150)}<span>${esc(c.name)}</span></div>`).join('')}</div>
       <div class="speech"><b>${esc(who)}</b><p></p></div>
-      <div class="side-b"><div class="big">${doll(w.isabelle, 'adult', 'happy', 290)}</div></div>
+      <div class="side-b"><div class="big">${pic(w.isabelle, 'adult', 'happy', 290)}</div></div>
     </div>
     <div class="choices"></div></div>`;
 }
@@ -632,10 +655,11 @@ async function dropChat(famId: number) {
     const k = day.kid(c.id);
     k.floor = c.age === 0 ? 'up' : 'down';
     homeSpot(k);
+    justIn.add(c.id);
   }
   sfx.giggle();
   const babies = kids.filter((c) => c.age === 0).map((c) => c.name);
-  say('emily', babies.length ? `${babies.join(' and ')} ${babies.length > 1 ? 'are' : 'is'} upstairs in the baby room.` : `${names} ${kids.length > 1 ? 'are' : 'is'} in! Have fun!`);
+  say('emily', babies.length ? `${babies.join(' and ')} ${babies.length > 1 ? 'are' : 'is'} in the baby room.` : `${names} ${kids.length > 1 ? 'are' : 'is'} in! Have fun!`);
   busy = false;
   persist();
   render();
@@ -672,7 +696,20 @@ async function pickChat(famId: number) {
 
 // ---------- wardrobe ----------
 
-type Tab = 'hair' | Slot;
+type Tab = 'hair' | 'face' | Slot;
+
+/** The face tab: every detail of the face, as buttons a child can tap. */
+const FACE_PICKS: { k: keyof FaceLook; label: string; options: [string | number | boolean, string][] }[] = [
+  { k: 'eyeShape', label: 'Eyes', options: [['round', '👀 Round'], ['almond', '😌 Almond'], ['sparkly', '✨ Sparkly'], ['sleepy', '😴 Sleepy']] },
+  { k: 'eyeSize', label: 'Eye size', options: [[0.85, 'Small'], [1, 'Middle'], [1.15, 'Big']] },
+  { k: 'lashes', label: 'Eyelashes', options: [['none', 'None'], ['some', 'Some'], ['long', 'Long']] },
+  { k: 'brows', label: 'Eyebrows', options: [['soft', 'Soft'], ['arched', 'Arched'], ['straight', 'Straight'], ['thick', 'Thick'], ['thin', 'Thin']] },
+  { k: 'browHeight', label: 'Eyebrows sit', options: [[-0.6, 'Low'], [0, 'Middle'], [0.6, 'High']] },
+  { k: 'mouth', label: 'Mouth', options: [['smile', '🙂 Smile'], ['grin', '😁 Big grin'], ['small', '😊 Little smile']] },
+  { k: 'nose', label: 'Nose', options: [['button', 'Button'], ['dot', 'Dots'], ['none', 'None']] },
+  { k: 'freckles', label: 'Freckles', options: [[false, 'No'], [true, 'Yes']] },
+  { k: 'blush', label: 'Cheeks', options: [[0, 'Plain'], [0.45, 'Rosy'], [0.85, 'Very rosy']] },
+];
 
 function openWardrobe(start?: number) {
   busy = true;
@@ -686,11 +723,19 @@ function openWardrobe(start?: number) {
     const look = lookOf();
     const age = ageOf();
     const kind = kindOf(age);
-    if (tab !== 'hair' && !SLOTS[kind].includes(tab)) tab = 'hair';
+    if (tab !== 'hair' && tab !== 'face' && !SLOTS[kind].includes(tab)) tab = 'hair';
     const child = who === 'me' ? null : (look as Child);
-    const mini = (l: Look) => doll(l, age, 'happy', kind === 'baby' ? 100 : kind === 'adult' ? 135 : 125);
+    const mini = (l: Look) => pic(l, age, 'happy', kind === 'baby' ? 100 : kind === 'adult' ? 135 : 125);
     let tiles = '';
-    if (tab === 'hair') {
+    if (tab === 'face') {
+      const face = specFromLook(look, age, child?.id ?? 1, child?.sex ?? 'girl').face as unknown as Record<string, unknown>;
+      const row = (label: string, inner: string) => `<div class="face-row"><span>${label}</span><div>${inner}</div></div>`;
+      tiles = `<div class="face-picks">
+        ${row('Eye colour', Object.entries(EYE_COLOURS).map(([n, c]) => `<button class="sw ${face.eyes === n ? 'on' : ''}" data-face="eyes" data-v='${JSON.stringify(n)}' style="background:${c}" aria-label="${n} eyes"></button>`).join(''))}
+        ${row('Eyebrow colour', Object.entries(HAIR_COLOURS).map(([n, c]) => `<button class="sw ${face.browColour === c ? 'on' : ''}" data-face="browColour" data-v='${JSON.stringify(c)}' style="background:${c}" aria-label="${n} eyebrows"></button>`).join(''))}
+        ${FACE_PICKS.map((f) => row(f.label, f.options.map(([v, l]) => `<button class="pill ${face[f.k] === v ? 'on' : ''}" data-face="${f.k}" data-v='${JSON.stringify(v)}'>${l}</button>`).join(''))).join('')}
+      </div>`;
+    } else if (tab === 'hair') {
       tiles = HAIR[kind].map((h) => `<button class="item ${look.hair === h ? 'on' : ''}" data-hair="${h}" aria-label="${h} hair">${mini({ ...look, hair: h })}<span>${h}</span></button>`).join('');
     } else {
       const slot = tab;
@@ -704,16 +749,16 @@ function openWardrobe(start?: number) {
     modal.hidden = false;
     modal.innerHTML = `<div class="wardrobe">
       <div class="who-list">
-        <button class="who ${who === 'me' ? 'on' : ''}" data-who="me"><span class="head">${doll(w.isabelle, 'adult', 'happy', 120)}</span>Isabelle</button>
-        ${w.children.map((c) => `<button class="who ${who === c.id ? 'on' : ''}" data-who="${c.id}"><span class="head">${doll(c, c.age, 'happy', c.age === 0 ? 70 : 100)}</span>${esc(c.name)}</button>`).join('')}
+        <button class="who ${who === 'me' ? 'on' : ''}" data-who="me"><span class="head">${pic(w.isabelle, 'adult', 'happy', 120)}</span>Isabelle</button>
+        ${w.children.map((c) => `<button class="who ${who === c.id ? 'on' : ''}" data-who="${c.id}"><span class="head">${pic(c, c.age, 'happy', c.age === 0 ? 70 : 100)}</span>${esc(c.name)}</button>`).join('')}
       </div>
       <div class="preview">
-        <div class="big">${doll(look, age, 'happy', kind === 'baby' ? 260 : 380)}</div>
+        <div class="big">${pic(look, age, 'happy', kind === 'baby' ? 260 : 380)}</div>
         ${child ? `<input class="name" maxlength="12" value="${esc(child.name)}" aria-label="Name"><small>${child.age === 0 ? 'Newborn' : `Age ${child.age}`} · ${PERSONALITIES[child.pers].e} ${PERSONALITIES[child.pers].label}</small>` : '<b class="name-fixed">Isabelle</b>'}
       </div>
       <div class="shop">
-        <div class="tabs"><button class="tab ${tab === 'hair' ? 'on' : ''}" data-tab="hair">Hair</button>${SLOTS[kind].map((s) => `<button class="tab ${s === tab ? 'on' : ''}" data-tab="${s}">${SLOT_LABEL[s]}</button>`).join('')}
-          ${child && tab !== 'hair' ? `<button class="tab all ${everything ? 'on' : ''}">${everything ? '✨ All clothes' : child.sex === 'boy' ? '👦 Boy clothes' : '👧 Girl clothes'}</button>` : ''}</div>
+        <div class="tabs"><button class="tab ${tab === 'hair' ? 'on' : ''}" data-tab="hair">Hair</button><button class="tab ${tab === 'face' ? 'on' : ''}" data-tab="face">Face</button>${SLOTS[kind].map((s) => `<button class="tab ${s === tab ? 'on' : ''}" data-tab="${s}">${SLOT_LABEL[s]}</button>`).join('')}
+          ${child && tab !== 'hair' && tab !== 'face' ? `<button class="tab all ${everything ? 'on' : ''}">${everything ? '✨ All clothes' : child.sex === 'boy' ? '👦 Boy clothes' : '👧 Girl clothes'}</button>` : ''}</div>
         ${tab === 'hair' ? `<div class="colours">${Object.entries(HAIR_COLOURS).map(([n, c]) => `<button class="sw ${look.hairColor === n ? 'on' : ''}" data-colour="${n}" style="background:${c}" aria-label="${n} hair colour"></button>`).join('')}</div>` : ''}
         <div class="items">${tiles}</div>
         <button class="done">Done ✓</button>
@@ -723,6 +768,13 @@ function openWardrobe(start?: number) {
     modal.querySelectorAll<HTMLElement>('.tab[data-tab]').forEach((b) => b.addEventListener('click', () => { sfx.pop(); tab = b.dataset.tab as Tab; draw(); }));
     modal.querySelector('.tab.all')?.addEventListener('click', () => { sfx.pop(); everything = !everything; draw(); });
     modal.querySelectorAll<HTMLElement>('[data-colour]').forEach((b) => b.addEventListener('click', () => { sfx.sparkle(); lookOf().hairColor = b.dataset.colour!; persist(); draw(); }));
+    modal.querySelectorAll<HTMLElement>('[data-face]').forEach((b) => b.addEventListener('click', () => {
+      sfx.sparkle();
+      const l = lookOf();
+      l.face = { ...l.face, [b.dataset.face!]: JSON.parse(b.dataset.v!) };
+      persist();
+      draw();
+    }));
     modal.querySelectorAll<HTMLElement>('.item').forEach((b) => b.addEventListener('click', () => {
       if (b.dataset.locked) { sfx.nope(); return; }
       sfx.sparkle();
@@ -761,7 +813,7 @@ function babyMaker() {
   const draw = () => {
     modal.hidden = false;
     modal.innerHTML = `<div class="maker">
-      <div class="preview"><div class="big">${doll(draft, draft.age, 'happy', draft.age === 0 ? 230 : 330)}</div></div>
+      <div class="preview"><div class="big">${figure(draft, draft.age, 'happy', draft.age === 0 ? 230 : 330, w.nextId, draft.sex)}</div></div>
       <div class="opts">
         <h2>Your own child 💖</h2>
         <input class="name" maxlength="12" placeholder="Name" value="${esc(draft.name)}" aria-label="Name">
@@ -828,7 +880,7 @@ function endOfDay() {
   modal.innerHTML = `<div class="night">
     <h2>Day ${w.day} done! 🌙</h2>
     <p class="wishline">${'⭐'.repeat(wishes)}${'☆'.repeat(3 - wishes)} ${wishes} of 3 wishes came true</p>
-    <div class="kids">${came.map((k) => { const c = day.child(k.id); return `<div class="kc"><div class="mini">${doll(c, c.age, 'asleep', c.age === 0 ? 60 : 80)}</div><b>${esc(c.name)}</b><div class="hearts">${hearts(k.hearts)}</div></div>`; }).join('')}</div>
+    <div class="kids">${came.map((k) => { const c = day.child(k.id); return `<div class="kc"><div class="mini">${pic(c, c.age, 'asleep', c.age === 0 ? 60 : 80)}</div><b>${esc(c.name)}</b><div class="hearts">${hearts(k.hearts)}</div></div>`; }).join('')}</div>
     ${rewards.length ? `<h3>What a great day! Pick a reward:</h3><div class="rewards">${rewards.map((r, i) => `<button class="reward" data-i="${i}">${rewardCard(r)}</button>`).join('')}</div>` : ''}
     <button class="next" ${rewards.length ? 'hidden' : ''}>Next day ☀️</button></div>`;
   modal.querySelectorAll<HTMLElement>('.reward').forEach((b) => b.addEventListener('click', () => {
@@ -855,8 +907,8 @@ function endOfDay() {
 }
 
 function rewardCard(r: Reward): string {
-  if (r.kind === 'helper') { const h = HELPERS[r.id as HelperId]; return `<span class="pic">${sprite(`helpers/${r.id}`, SIZES.helpers[r.id], 120)}</span><b>${h.name}</b><small>${h.job}</small>`; }
-  if (r.kind === 'furniture') { const f = FURNITURE[r.id]; return `<span class="pic"><img src="art/rewards/${r.id}.webp" alt=""></span><b>${f.name}</b><small>New toy for ${f.floor === 'up' ? 'upstairs' : 'downstairs'}</small>`; }
+  if (r.kind === 'helper') { const h = HELPERS[r.id as HelperId]; return `<span class="pic">${grownUp(r.id, 120)}</span><b>${h.name}</b><small>${h.job}</small>`; }
+  if (r.kind === 'furniture') { const f = FURNITURE[r.id]; return `<span class="pic"><img src="art/rewards/${r.id}.webp" alt=""></span><b>${f.name}</b><small>New toy for the ${f.floor === 'up' ? 'baby room' : 'play room'}</small>`; }
   return `<span class="e">👗</span><b>New clothes</b><small>${r.ids.map((id) => ITEM[id].name).join(', ')}</small>`;
 }
 
@@ -901,8 +953,8 @@ function startScreen() {
   const isabelle = saved?.world.isabelle ?? newWorld().isabelle;
   modal.hidden = false;
   modal.innerHTML = `<div class="start">
-    <h1>Narwhal <span>Nursery</span></h1>
-    <div class="cast"><div>${doll(isabelle, 'adult', 'happy', 300)}<b>Isabelle</b></div><div>${sprite('staff/emily', SIZES.staff.emily, 300)}<b>Emily</b></div></div>
+    <h1><span>Nursery</span></h1>
+    <div class="cast"><div>${pic(isabelle, 'adult', 'happy', 300)}<b>Isabelle</b></div><div>${grownUp('emily', 300)}<b>Emily</b></div></div>
     <button class="play">▶ Play${saved ? `<small>Day ${saved.world.day}</small>` : ''}</button>
     ${saved ? '<button class="again">Start again</button>' : ''}</div>`;
   modal.querySelector('.play')!.addEventListener('click', () => { setMuted(saved?.world.muted ?? false); closeModal(); begin(saved); sfx.pop(); });
@@ -918,4 +970,5 @@ function startScreen() {
 // The room is drawn in painting pixels and scaled to the stage width.
 room.style.width = `${ROOM_W}px`;
 room.style.height = `${ROOM_H}px`;
+mount(room);
 startScreen();

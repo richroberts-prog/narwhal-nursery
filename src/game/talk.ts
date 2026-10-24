@@ -3,7 +3,7 @@ import { ACTS, Act, favourite } from './catalog';
 import { Child, Rng, pick } from './world';
 
 const TIP: Record<Act, [string, string]> = {
-  cuddle: ['{n} is a bit shy. A cuddle helps!', '{n} likes the big comfy chair upstairs.'],
+  cuddle: ['{n} is a bit shy. A cuddle helps!', '{n} likes the big comfy chair in the baby room.'],
   nap: ['{n} gets sleepy. Naps are the best!', '{n} sleeps best in a cot with a blanket.'],
   bottle: ['{n} is always hungry. Lots of milk please!', '{n} drinks the whole bottle every time!'],
   snack: ['{n} is always hungry!', 'A snack makes {n} smile.'],
@@ -83,4 +83,20 @@ export function tipAnswer(c: Child, saidYes: boolean, didIt: boolean): string {
   if (saidYes) return `Hmm, ${c.name} says no! Maybe tomorrow.`;
   if (didIt) return `${c.name} says yes! You forgot. Silly!`;
   return "That's okay. Maybe tomorrow!";
+}
+
+/** Two children chatting: a question or idea, and an answer. Little ones (2 and 3) keep it short. */
+const KID_TALK: [string, string][] = [
+  ['Want to play with me, {b}?', 'Yes! Let\'s play!'], ['I like your clothes, {b}!', 'Thank you! I like yours!'],
+  ['Look, {b}! I can jump!', 'Wow! Me too!'], ['You\'re my best friend, {b}!', 'You\'re mine too, {a}!'],
+  ['Let\'s build a big tower!', 'The biggest ever!'], ['Rawr! I\'m a dinosaur!', 'Aaah! Run!'],
+  ['Do you like cookies, {b}?', 'I love cookies!'], ['Race you, {b}!', 'Ready, steady, go!'],
+  ['What\'s your favourite colour?', 'Pink! No, blue! Both!'], ['Can I have a turn, {b}?', 'OK! Here you go!'],
+  ['Let\'s play mummies and babies!', 'I\'ll be the mummy!'], ['I drew a rainbow!', 'So pretty, {a}!'],
+];
+const LITTLE_TALK: [string, string][] = [['Hi {b}!', 'Hiya!'], ['Play?', 'Yay!'], ['Look! Ball!', 'Ball!'], ['Me hug!', 'Hug!']];
+export function kidTalk(rng: Rng, a: Child, b: Child): [string, string] {
+  const [x, y] = pick(rng, a.age <= 3 || b.age <= 3 ? LITTLE_TALK : KID_TALK);
+  const put = (s: string) => s.replaceAll('{a}', a.name).replaceAll('{b}', b.name);
+  return [put(x), put(y)];
 }

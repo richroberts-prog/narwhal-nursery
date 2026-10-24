@@ -1,0 +1,502 @@
+{
+"adult:head-1": [
+"#fde3e1",
+"#f0cec9"
+],
+"adult:head-2": [
+"#e4c89e",
+"#e9e2ce"
+],
+"adult:head-3": [
+"#e08982",
+"#b58460"
+],
+"adult:head-5": [
+"#f0eee6",
+"#d8d6cb"
+],
+"adult:outfit-1": [
+"#fce5e2",
+"#f2d2ca"
+],
+"adult:outfit-2": [
+"#f8e4ad",
+"#f8eeda"
+],
+"adult:outfit-3": [
+"#a3bccc",
+"#faf8f5"
+],
+"adult:outfit-4": [
+"#a6c290",
+"#7b8664"
+],
+"adult:outfit-5": [
+"#c594d5",
+"#a978b2"
+],
+"baby:dummy-blue": [
+"#b6ddf9",
+"#6997b4"
+],
+"baby:dummy-green": [
+"#b9eed2",
+"#6ea888"
+],
+"baby:dummy-pink": [
+"#fbcadf",
+"#b48299"
+],
+"baby:dummy-purple": [
+"#ddc8f6",
+"#9981b2"
+],
+"baby:dummy-yellow": [
+"#faefa0",
+"#b0a13b"
+],
+"baby:head-1": [
+"#fefefd",
+"#f0ede9"
+],
+"baby:head-2": [
+"#a5cce4",
+"#87b7d2"
+],
+"baby:head-3": [
+"#fad5dc",
+"#f0bec8"
+],
+"baby:head-4": [
+"#c8bda3",
+"#ebdbc5"
+],
+"baby:head-5": [
+"#9dc5e2",
+"#b0d1ea"
+],
+"baby:head-6": [
+"#ceab8e",
+"#e1c3a9"
+],
+"baby:head-7": [
+"#f3d0ce",
+"#d3afa5"
+],
+"baby:head-8": [
+"#f3e7e2",
+"#e7d1ce"
+],
+"baby:suit-1": [
+"#fcf2c9",
+"#c5b38e"
+],
+"baby:suit-2": [
+"#9dc6df",
+"#f7fbfc"
+],
+"baby:suit-3": [
+"#f8ced6",
+"#c69994"
+],
+"baby:suit-4": [
+"#c7ebd1",
+"#aac6a5"
+],
+"baby:suit-5": [
+"#d9f2fa",
+"#c4dee8"
+],
+"baby:suit-6": [
+"#d7d6d3",
+"#c9b7a7"
+],
+"baby:suit-7": [
+"#fde6eb",
+"#f6d2d7"
+],
+"baby:suit-8": [
+"#f2e2f4",
+"#e3d2e0"
+],
+"kid:bottoms-1": [
+"#9fd6a9",
+"#8bc697"
+],
+"kid:bottoms-10": [
+"#fdf1b9",
+"#f4e4ad"
+],
+"kid:bottoms-11": [
+"#a9afa7",
+"#f2f0ed"
+],
+"kid:bottoms-12": [
+"#777873",
+"#3a451f"
+],
+"kid:bottoms-13": [
+"#dcccad",
+"#a69769"
+],
+"kid:bottoms-14": [
+"#7f8fa7",
+"#52707c"
+],
+"kid:bottoms-15": [
+"#9bb7c7",
+"#c7d5db"
+],
+"kid:bottoms-16": [
+"#9dbbcd",
+"#7a9da9"
+],
+"kid:bottoms-17": [
+"#fbdde6",
+"#f4cad6"
+],
+"kid:bottoms-18": [
+"#9cb8cb",
+"#adc6d7"
+],
+"kid:bottoms-19": [
+"#a36b59",
+"#d38c84"
+],
+"kid:bottoms-2": [
+"#fbd2e1",
+"#f5c0d1"
+],
+"kid:bottoms-20": [
+"#c5a1da",
+"#ead1f4"
+],
+"kid:bottoms-21": [
+"#f1ebea",
+"#fdfcfb"
+],
+"kid:bottoms-22": [
+"#f5988f",
+"#e8796f"
+],
+"kid:bottoms-3": [
+"#c7a5d2",
+"#95758e"
+],
+"kid:bottoms-4": [
+"#93b6c8",
+"#658d92"
+],
+"kid:bottoms-5": [
+"#a7bcc8",
+"#919d9d"
+],
+"kid:bottoms-6": [
+"#9fbddc",
+"#f6c38e"
+],
+"kid:bottoms-7": [
+"#d2d4d7",
+"#c3c4c5"
+],
+"kid:bottoms-8": [
+"#f7d5da",
+"#eac4c8"
+],
+"kid:bottoms-9": [
+"#666665",
+"#6f716e"
+],
+"kid:extra-backpack": [
+"#fae792",
+"#b8a160"
+],
+"kid:extra-cape": [
+"#ca635b",
+"#e77974"
+],
+"kid:extra-necklace": [
+"#97a9b3",
+"#e7e5b6"
+],
+"kid:extra-wings": [
+"#dee8e3",
+"#c6c0a6"
+],
+"kid:glasses-15": [
+"#63615f",
+"#9f9e9e"
+],
+"kid:glasses-3": [
+"#dd8581",
+"#c27262"
+],
+"kid:glasses-6": [
+"#f8e69b",
+"#af9263"
+],
+"kid:glasses-8": [
+"#a5b3cb",
+"#808799"
+],
+"kid:hat-1": [
+"#e48588",
+"#b45e4b"
+],
+"kid:hat-11": [
+"#e99793",
+"#d37773"
+],
+"kid:hat-12": [
+"#e27f76",
+"#b75844"
+],
+"kid:hat-13": [
+"#c6c9c9",
+"#9ca098"
+],
+"kid:hat-14": [
+"#aba68c",
+"#8c8563"
+],
+"kid:hat-16": [
+"#f9e491",
+"#b49d4c"
+],
+"kid:hat-19": [
+"#f4c3c5",
+"#e5adaf"
+],
+"kid:hat-2": [
+"#fbe8a5",
+"#eed287"
+],
+"kid:hat-22": [
+"#f8c6d4",
+"#e9a6b9"
+],
+"kid:hat-4": [
+"#8bb9d3",
+"#6293a7"
+],
+"kid:hat-5": [
+"#e3cba4",
+"#f6e1bc"
+],
+"kid:hat-7": [
+"#f9f6f0",
+"#bda182"
+],
+"kid:hat-9": [
+"#767270",
+"#5b5547"
+],
+"kid:headband-10": [
+"#f5e6ea",
+"#e0bdc9"
+],
+"kid:headband-17": [
+"#ebedec",
+"#abada0"
+],
+"kid:headband-18": [
+"#d0c5cf",
+"#a0a49a"
+],
+"kid:headband-20": [
+"#e7a6c2",
+"#f7cadb"
+],
+"kid:headband-21": [
+"#ebcfc9",
+"#fae9e9"
+],
+"kid:headband-3": [
+"#f8cbd7",
+"#bf8e81"
+],
+"kid:headband-6": [
+"#cdc6bc",
+"#b9a382"
+],
+"kid:headband-8": [
+"#9a9a9a",
+"#626149"
+],
+"kid:shoes-1": [
+"#c98577",
+"#fbf6f2"
+],
+"kid:shoes-10": [
+"#fbeccd",
+"#b6a26d"
+],
+"kid:shoes-11": [
+"#647172",
+"#6aa9d1"
+],
+"kid:shoes-12": [
+"#888887",
+"#6e756d"
+],
+"kid:shoes-13": [
+"#bbbdbf",
+"#929690"
+],
+"kid:shoes-14": [
+"#c59e7e",
+"#8f6e41"
+],
+"kid:shoes-15": [
+"#a18f88",
+"#b3dfb0"
+],
+"kid:shoes-16": [
+"#d6b582",
+"#947d3c"
+],
+"kid:shoes-17": [
+"#dddad7",
+"#aba899"
+],
+"kid:shoes-18": [
+"#b3a891",
+"#f8efe7"
+],
+"kid:shoes-19": [
+"#d75b67",
+"#a24537"
+],
+"kid:shoes-2": [
+"#a7cc97",
+"#84b87e"
+],
+"kid:shoes-20": [
+"#b1828b",
+"#f6dae7"
+],
+"kid:shoes-21": [
+"#f4d8da",
+"#fdf5f5"
+],
+"kid:shoes-22": [
+"#efa398",
+"#cb7e64"
+],
+"kid:shoes-3": [
+"#f7cad1",
+"#e5a8b5"
+],
+"kid:shoes-4": [
+"#cea983",
+"#b08f70"
+],
+"kid:shoes-5": [
+"#f4e3d5",
+"#b1a388"
+],
+"kid:shoes-6": [
+"#edebea",
+"#aaa699"
+],
+"kid:shoes-7": [
+"#a8bfd3",
+"#89999d"
+],
+"kid:shoes-8": [
+"#f9f6f6",
+"#ba979b"
+],
+"kid:shoes-9": [
+"#6b6b68",
+"#2d3120"
+],
+"kid:top-1": [
+"#fcee92",
+"#f1dc89"
+],
+"kid:top-10": [
+"#fcdde5",
+"#f2d1cc"
+],
+"kid:top-11": [
+"#65a3ca",
+"#acd1ec"
+],
+"kid:top-12": [
+"#e58373",
+"#eee7ab"
+],
+"kid:top-13": [
+"#8492ae",
+"#5c6b82"
+],
+"kid:top-14": [
+"#fefefd",
+"#bda9a1"
+],
+"kid:top-15": [
+"#e88577",
+"#ac6a4c"
+],
+"kid:top-16": [
+"#f6ba6f",
+"#e5e4e2"
+],
+"kid:top-17": [
+"#edc2d3",
+"#fce4ef"
+],
+"kid:top-18": [
+"#fdf1b0",
+"#f1d48e"
+],
+"kid:top-19": [
+"#fefdfc",
+"#ede8e4"
+],
+"kid:top-2": [
+"#8dc0e3",
+"#6893ad"
+],
+"kid:top-20": [
+"#d5b4e1",
+"#a280a4"
+],
+"kid:top-21": [
+"#fbe1e4",
+"#efced0"
+],
+"kid:top-22": [
+"#f6968f",
+"#e5796e"
+],
+"kid:top-3": [
+"#fefcfb",
+"#d3978d"
+],
+"kid:top-4": [
+"#e8a163",
+"#f8c785"
+],
+"kid:top-5": [
+"#a6c8b5",
+"#939b76"
+],
+"kid:top-6": [
+"#f8cd8b",
+"#8dd6ca"
+],
+"kid:top-7": [
+"#ea948f",
+"#fdf8f6"
+],
+"kid:top-8": [
+"#eadcf0",
+"#dbcae0"
+],
+"kid:top-9": [
+"#f9fafa",
+"#8fa1ba"
+]
+}
