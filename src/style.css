@@ -215,14 +215,6 @@ img { -webkit-user-drag: none; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-/* People in menus are 3D pictures: keep their shape inside the old doll box. */
-.doll.fig > img { object-fit: contain; object-position: center bottom; }
-.face-picks { display: flex; flex-direction: column; gap: 10px; padding: 4px 6px; }
-.face-row { display: flex; align-items: center; gap: 10px; }
-.face-row > span { width: 130px; flex: none; font-weight: 800; font-size: 17px; }
-.face-row > div { display: flex; flex-wrap: wrap; gap: 8px; }
-.face-row .pill { padding: 7px 13px; border-radius: 14px; border: 0; background: #efe7f7; font: 800 16px inherit; color: inherit; }
-.face-row .pill.on { background: #a78bfa; color: #fff; }
 .p.carried .tag, .p.carried .bubble { visibility: hidden; }
 /* A chatting child's words, in a speech bubble. */
 .p .bubble.words { width: auto; min-width: calc(54px * var(--b)); max-width: 230px; height: auto; padding: 6px 12px; border-radius: 18px; font-size: calc(17px * var(--b)); font-weight: 800; line-height: 1.15; white-space: normal; text-align: center; top: auto; bottom: 100%; margin-bottom: 8px; z-index: 2; }

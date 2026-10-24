@@ -7,7 +7,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { Act, Floor } from '../../game/catalog';
 import { Bed, FRONT_DOOR, GLASS, ROOM_H, ROOM_W, Station } from '../room';
 import * as F from './furniture';
-import { Mood, Person, Spec, makePerson, moodExpr, posePerson } from './people';
+import { Art, artKey, paint } from './paint';
 
 const low = /Silk|KF[A-Z]{2,4}|Android [4-9]\b/.test(navigator.userAgent);
 
@@ -201,68 +201,72 @@ function addCot(floor: Floor, b: Bed) {
   beds.set(b.id, { pos: new THREE.Vector3(lay.x, c.userData.bedY as number, lay.z), len });
 }
 
-// ---------- props children hold while doing things ----------
-const propMat = (c: string) => F.mat(c, { roughness: 0.4 });
-const PROPS: Partial<Record<Act, () => THREE.Object3D>> = {
-  snack: () => { const g = new THREE.Group(); const c = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.03, 16), propMat('#c98a4a')); c.rotation.x = Math.PI / 2; g.add(c); for (let i = 0; i < 4; i++) g.add(F.at(new THREE.Mesh(new THREE.SphereGeometry(0.018, 6, 4), propMat('#5a3418')), Math.cos(i * 1.6) * 0.05, Math.sin(i * 1.6) * 0.05, 0.02)); return g; },
-  painting: () => { const g = new THREE.Group(); g.add(F.at(new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.3, 8), propMat('#e7c36a')), 0, 0.12, 0)); g.add(F.at(new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.08, 8), propMat('#ff5d8f')), 0, 0.3, 0)); return g; },
-  story: () => { const g = new THREE.Group(); for (const s of [-1, 1]) { const p = F.rbox(0.22, 0.3, 0.03, 0.01, propMat(s < 0 ? '#5aa0f0' : '#ffffff')); p.rotation.y = s * 0.4; g.add(F.at(p, s * 0.1, 0, 0)); } return g; },
-  blocks: () => F.rbox(0.18, 0.18, 0.18, 0.03, propMat(['#ff8fab', '#7cc8ff', '#ffd166'][Math.floor(Math.random() * 3)])),
-  bottle: () => { const g = new THREE.Group(); g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.22, 12), propMat('#fffaf0'))); g.add(F.at(new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.08, 10), propMat('#ffd6a0')), 0, 0.15, 0)); return g; },
-  outside: () => new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 12), propMat('#ff6b6b')),
-  play: () => new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 12), propMat('#ffd23f')),
-  dressup: () => { const g = new THREE.Group(); for (let i = 0; i < 5; i++) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.14, 4), propMat('#f2c230')); c.position.set(Math.cos(i * 1.256) * 0.16, 0.07, Math.sin(i * 1.256) * 0.16); g.add(c); } g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.07, 18), propMat('#f2c230'))); return g; },
-};
-
-// ---------- people ----------
+// ---------- people: the painted dolls, standing in the room as cut-outs facing the camera ----------
 export type Entry = {
-  key: string; spec: () => Spec; specKey: string; x: number; y: number; hPx: number; floor: Floor; mood: Mood;
-  bed?: string | null; floorNap?: boolean; sit?: boolean;
+  key: string; art: Art; x: number; y: number;
+  /** The doll's box in room pixels where they stand, as the tap layer has it: [width, height, feet offset]. */
+  box: [number, number, number]; floor: Floor;
+  bed?: string | null; floorNap?: boolean;
   /** Someone new walks in from here: a room pixel in a room (parents from the street, children from the door). */
   from?: { x: number; y: number; floor: Floor };
-  /** What they're doing right now, and at which station. */
-  act?: Act | null; at?: string;
-  /** The person they're chatting to. */
-  talkTo?: string | null;
+  /** What they're doing right now (a bouncy thing makes them bob), or who they're chatting to. */
+  act?: Act | null; talkTo?: string | null;
   /** How fast they walk, in 3D units a second. */
   speed?: number;
 };
-type Live = {
-  p: Person; e: Entry; target: THREE.Vector3; scale: number; phase: number; moving: number; seen: number;
-  prop: THREE.Object3D | null; propAct: Act | null;
-};
+type Live = { e: Entry; obj: THREE.Mesh; blob: THREE.Mesh; key: string; target: THREE.Vector3; size: [number, number, number]; phase: number; moving: number; seen: number };
 const live = new Map<string, Live>();
-const SLIM = 0.84;
+const card = new THREE.PlaneGeometry(1, 1);
+const blobTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d')!; const gr = g.createRadialGradient(32, 32, 2, 32, 32, 30); gr.addColorStop(0, 'rgba(60,30,40,.35)'); gr.addColorStop(1, 'rgba(60,30,40,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+const blobMat = new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false });
+const textures = new Map<string, Promise<THREE.Texture>>();
+function textureFor(a: Art) {
+  const k = artKey(a);
+  let t = textures.get(k);
+  if (!t) {
+    t = paint(a).then((c) => { const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 4; return tx; });
+    textures.set(k, t);
+  }
+  return t;
+}
 let frame = 0;
 
-function goal(e: Entry): { pos: THREE.Vector3; scale: number } {
-  if (e.bed && beds.has(e.bed)) { const b = beds.get(e.bed)!; return { pos: b.pos.clone(), scale: b.len * 0.78 }; }
-  const pos = pointAt(e.x, e.y, 0, e.floor);
-  return { pos, scale: e.hPx / pxPerUnit(pos, e.floor) };
+/** Where they stand, and their size in 3D: [width, height, feet offset]. In bed, they lie on the mattress. */
+function goal(e: Entry): { pos: THREE.Vector3; size: [number, number, number] } {
+  if (e.bed && beds.has(e.bed)) {
+    const b = beds.get(e.bed)!, w = b.len * 1.05;
+    return { pos: b.pos.clone().add(new THREE.Vector3(0, -0.05, 0.12)), size: [w, w * (e.box[1] / e.box[0]), 0] };
+  }
+  const pos = pointAt(e.x, e.y, 0, e.floor), ppu = pxPerUnit(pos, e.floor);
+  return { pos, size: [e.box[0] / ppu, e.box[1] / ppu, e.box[2] / ppu] };
 }
 
 export function sync(entries: Entry[]) {
   frame++;
   for (const e of entries) {
     let l = live.get(e.key);
-    if (l && l.e.specKey !== e.specKey) { peopleRoot.remove(l.p.root); l.p.dispose(); dropProp(l); live.delete(e.key); l = undefined; }
     const g = goal(e);
     if (!l) {
-      const p = makePerson(e.spec(), e.key);
-      peopleRoot.add(p.root);
-      l = { p, e, target: g.pos, scale: g.scale, phase: Math.random() * 6, moving: 0, seen: frame, prop: null, propAct: null };
-      p.root.position.copy(e.from ? pointAt(e.from.x, e.from.y, 0, e.from.floor) : g.pos);
-      p.root.scale.set((g.scale / p.height) * SLIM, g.scale / p.height, (g.scale / p.height) * SLIM);
+      const obj = new THREE.Mesh(card, new THREE.MeshBasicMaterial({ alphaTest: 0.5, transparent: false, toneMapped: false, side: THREE.DoubleSide }));
+      obj.visible = false;
+      const blob = new THREE.Mesh(card, blobMat); blob.rotation.x = -Math.PI / 2;
+      peopleRoot.add(obj, blob);
+      l = { e, obj, blob, key: '', target: g.pos, size: g.size, phase: Math.random() * 6, moving: 0, seen: frame };
+      obj.position.copy(e.from ? pointAt(e.from.x, e.from.y, 0, e.from.floor) : g.pos);
       live.set(e.key, l);
     }
-    l.e = e; l.target = g.pos; l.scale = g.scale; l.seen = frame;
-    if (!e.talkTo) l.p.setExpr(moodExpr(e.mood));
+    const k = artKey(e.art);
+    if (l.key !== k) {
+      l.key = k;
+      const mine = l;
+      void textureFor(e.art).then((t) => { if (mine.key !== k) return; const m = mine.obj.material as THREE.MeshBasicMaterial; m.map = t; m.needsUpdate = true; mine.obj.visible = true; });
+    }
+    l.e = e; l.target = g.pos; l.size = g.size; l.seen = frame;
     const lying = !!(e.bed && beds.has(e.bed)) || !!e.floorNap;
-    if (lying !== !!l.p.root.userData.lying) { l.p.root.userData.lying = lying; l.p.root.position.copy(g.pos); }
+    if (lying !== !!l.obj.userData.lying) { l.obj.userData.lying = lying; l.obj.position.copy(g.pos); }
   }
-  for (const [k, l] of live) if (l.seen !== frame) { peopleRoot.remove(l.p.root); l.p.dispose(); dropProp(l); live.delete(k); }
+  for (const [k, l] of live) if (l.seen !== frame) { peopleRoot.remove(l.obj, l.blob); (l.obj.material as THREE.Material).dispose(); live.delete(k); }
 }
-function dropProp(l: Live) { if (l.prop) { l.prop.removeFromParent(); l.prop = null; l.propAct = null; } }
 
 // ---------- Isabelle carries a child ----------
 type Carry = { kid: string; stage: 'fetch' | 'carry'; t: number };
@@ -273,96 +277,76 @@ export const isCarried = (key: string) => carrying?.kid === key;
 
 // ---------- each frame ----------
 const clock = new THREE.Clock();
-const tmp = new THREE.Vector3();
+const BOUNCY: Act[] = ['song', 'play', 'outside', 'dressup'];
 function walkTo(l: Live, target: THREE.Vector3, dt: number, speed: number) {
-  const root = l.p.root;
-  const d = target.clone().sub(root.position); d.y = 0;
+  const o = l.obj.position;
+  const d = target.clone().sub(o); d.y = 0;
   const dist = d.length();
-  if (dist > 40) { root.position.copy(target); return 0; }
-  if (dist > 0.04) {
-    root.position.addScaledVector(d.normalize(), Math.min(dist, speed * dt));
-    l.moving = Math.min(1, l.moving + dt * 6);
-    turnTo(root, Math.atan2(d.x, d.z), dt * 10);
-  } else l.moving = Math.max(0, l.moving - dt * 6);
+  if (dist > 40) { o.x = target.x; o.z = target.z; return 0; }
+  if (dist > 0.04) { o.addScaledVector(d.normalize(), Math.min(dist, speed * dt)); l.moving = Math.min(1, l.moving + dt * 6); }
+  else l.moving = Math.max(0, l.moving - dt * 6);
   return dist;
 }
-function turnTo(o: THREE.Object3D, want: number, k: number) {
-  let diff = want - o.rotation.y; diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-  o.rotation.y += diff * Math.min(1, k);
+/** Stand the picture up: its feet on the spot, facing the camera like the painting did. */
+function place(l: Live, foot: THREE.Vector3, size: [number, number, number], lift: number, scale = 1) {
+  const [w, h, feet] = size;
+  l.obj.scale.set(w * scale, h * scale, 1);
+  l.obj.quaternion.copy(camera.quaternion);
+  l.obj.position.set(foot.x, foot.y + (h / 2 - feet) * scale + lift, foot.z);
+  l.blob.position.set(foot.x, 0.015, foot.z);
+  l.blob.scale.set(w * 0.75 * scale, w * 0.35 * scale, 1);
 }
-function setScale(l: Live) { const s = l.scale / l.p.height; l.p.root.scale.set(s * SLIM, s, s * SLIM); }
 
-function holdProp(l: Live, act: Act | null | undefined) {
-  if (l.propAct === (act ?? null)) return;
-  dropProp(l);
-  const make = act ? PROPS[act] : undefined;
-  if (!make) return;
-  const o = make(); l.prop = o; l.propAct = act!;
-  o.traverse((c) => { if ((c as THREE.Mesh).isMesh) c.castShadow = true; });
-  if (act === 'dressup') { l.p.parts.head.add(F.at(o, 0, 0.42, 0)); return; }
-  // in the right hand
-  const hand = l.p.parts.arms[0].children[1] as THREE.Group;
-  hand.add(F.at(o, 0, -l.p.parts.torso.position.y * 0.0 - 0.32, 0.12));
-}
+/** Tests can hold the room still to look at a moment. */
+let frozen = false;
+export const freeze = (on: boolean) => { frozen = on; };
+/** Tests: where the carry has got to, and the carried child's picture height off the floor. */
+export const carryState = () => carrying && { ...carrying, kidY: live.get(carrying.kid)?.obj.position.y, isaY: live.get('isabelle')?.obj.position.y };
 
 function animate() {
-  const dt = Math.min(clock.getDelta(), 0.1), t = clock.elapsedTime;
+  const dt = frozen ? (clock.getDelta(), 0) : Math.min(clock.getDelta(), 0.1), t = clock.elapsedTime;
   const isa = live.get('isabelle');
+  const foot = new THREE.Vector3();
   for (const l of live.values()) {
-    const { p, e } = l, root = p.root;
-    setScale(l);
-    const lying = !!root.userData.lying;
-    const s = l.scale / p.height;
-    if (carrying && isa && l === live.get(carrying.kid)) continue; // placed with Isabelle below
-    if (lying) {
-      holdProp(l, null);
-      root.scale.setScalar(s);
-      root.position.copy(l.target);
-      root.rotation.set(-Math.PI / 2, 0, -Math.PI / 2); // on their back, head towards the pillow, face up
-      root.position.x += (p.height * s) / 2 - 0.05;
-      root.position.y += 0.18 * s;
-      posePerson(p, { walk: 0, t, phase: l.phase, lying: true });
+    const { e } = l;
+    if (carrying && l === live.get(carrying.kid) && carrying.stage === 'carry') continue; // placed with Isabelle below
+    if (l.obj.userData.lying) {
+      l.obj.scale.set(l.size[0], l.size[1], 1);
+      l.obj.quaternion.copy(camera.quaternion);
+      l.obj.position.copy(l.target).add(new THREE.Vector3(0, l.size[1] / 2, 0));
+      l.blob.visible = false;
       continue;
     }
-    root.rotation.x = 0; root.rotation.z = 0;
+    l.blob.visible = true;
     const isIsabelle = e.key === 'isabelle';
     let target = l.target;
-    if (isIsabelle && carrying?.stage === 'fetch') { const kid = live.get(carrying.kid); if (kid) target = kid.p.root.position.clone().add(new THREE.Vector3(0.45, 0, 0.2)); }
-    const speed = e.speed ?? (isIsabelle ? 5.5 : 2.8);
-    const dist = walkTo(l, target, dt, speed);
+    if (isIsabelle && carrying?.stage === 'fetch') { const kid = live.get(carrying.kid); if (kid) target = kid.obj.position.clone().add(new THREE.Vector3(0.5, 0, 0.15)); }
+    // walk on the floor: keep the foot point, not the picture's middle
+    l.obj.position.y = 0;
+    const dist = walkTo(l, target, dt, e.speed ?? (isIsabelle ? 4 : 2.6));
+    foot.copy(l.obj.position).setY(0);
     if (isIsabelle && carrying) {
       carrying.t += dt;
       if (carrying.stage === 'fetch' && (dist < 0.1 || carrying.t > 4)) { carrying.stage = 'carry'; carrying.t = 0; }
-      else if (carrying.stage === 'carry' && (dist < 0.1 || carrying.t > 8)) { const kid = live.get(carrying.kid); if (kid) kid.p.root.position.copy(kid.target); carrying = null; }
+      else if (carrying.stage === 'carry' && (dist < 0.1 || carrying.t > 8)) { const kid = live.get(carrying.kid); if (kid) kid.obj.position.copy(kid.target); carrying = null; }
     }
-    // standing still: face the room, the thing they're doing, or the friend they're chatting to
-    const sp = e.at ? spots.get(e.at) : undefined;
-    const friend = e.talkTo ? live.get(e.talkTo) : undefined;
-    if (dist <= 0.04) {
-      if (friend) turnTo(root, Math.atan2(friend.p.root.position.x - root.position.x, friend.p.root.position.z - root.position.z), dt * 6);
-      else if (e.act && sp && ['painting', 'story', 'song', 'snack', 'potty', 'outside', 'bottle'].includes(e.act) && sp.wall) turnTo(root, Math.PI + (sp.pos.x - root.position.x) * 0.15, dt * 5);
-      else turnTo(root, 0, dt * 3);
-    }
+    l.phase += dt * (l.moving > 0.1 ? 10 : 2);
+    // a hop when walking, a bob when dancing or chatting, like the painted game
     const busy = dist <= 0.04 ? e.act ?? null : null;
-    holdProp(l, busy);
-    l.phase += dt * (l.moving > 0.1 ? 11 : 2);
-    posePerson(p, { walk: l.moving, t, phase: l.phase, sit: (e.sit || busy === 'story' || busy === 'blocks') && l.moving < 0.1, act: busy, talking: !!friend && dist <= 0.04, holding: isIsabelle && carrying?.stage === 'carry' });
-    if (busy === 'cuddle' && sp) { root.position.lerp(tmp.copy(sp.pos).setY(sp.top), Math.min(1, dt * 4)); root.rotation.y = -0.45; }
-    if (busy === 'nappy' && sp) { root.position.copy(sp.pos).setY(sp.top); root.rotation.set(-Math.PI / 2, 0, -Math.PI / 2); }
+    const hop = l.moving > 0.1 ? Math.abs(Math.sin(l.phase)) * 0.06 : busy && BOUNCY.includes(busy) ? Math.abs(Math.sin(t * 5 + l.phase)) * 0.12 : e.talkTo ? Math.abs(Math.sin(t * 7)) * 0.025 : 0;
+    place(l, foot, l.size, hop);
+    l.obj.userData.foot = foot.clone();
   }
-  // a carried child sits in Isabelle's arms
+  // a carried child sits in Isabelle's arms, in front of her, a little smaller
   if (carrying && isa) {
     const kid = live.get(carrying.kid);
-    if (kid) {
-      const r = kid.p.root;
-      if (carrying.stage === 'carry') {
-        const fwd = new THREE.Vector3(Math.sin(isa.p.root.rotation.y), 0, Math.cos(isa.p.root.rotation.y));
-        r.position.copy(isa.p.root.position).addScaledVector(fwd, 0.32).add(new THREE.Vector3(0, isa.scale * 0.42, 0));
-        r.rotation.set(0, isa.p.root.rotation.y, 0);
-        posePerson(kid.p, { walk: 0, t, phase: kid.phase, sit: true, held: true });
-      } else posePerson(kid.p, { walk: 0, t, phase: kid.phase, sit: kid.e.sit });
-      setScale(kid);
-    } else carrying = null;
+    if (kid && carrying.stage === 'carry') {
+      const f = (isa.obj.userData.foot as THREE.Vector3 | undefined) ?? isa.obj.position;
+      const hold = new THREE.Vector3(f.x + 0.05, 0, f.z + 0.25);
+      kid.obj.position.set(hold.x, 0, hold.z);
+      place(kid, hold, kid.size, isa.size[1] * 0.3, 0.8);
+      kid.blob.visible = false;
+    } else if (!kid) carrying = null;
   }
   const mob = building.getObjectByName('mobile'); if (mob) mob.rotation.y += dt * 0.25;
   // slide the camera to the room on show
@@ -399,38 +383,4 @@ export function mount(container: HTMLElement) {
   follow();
   const loop = () => { requestAnimationFrame(loop); if (!document.hidden) animate(); };
   loop();
-}
-
-// ---------- still pictures of people for menus ----------
-let snap: { r: THREE.WebGLRenderer; scene: THREE.Scene; cam: THREE.PerspectiveCamera } | null = null;
-const shots = new Map<string, string>();
-/** A picture of a person (full length), as an image URL, cached. */
-export function portrait(spec: () => Spec, key: string, mood: Mood = 'happy'): string {
-  const k = `${key}|${mood}`;
-  const got = shots.get(k);
-  if (got) return got;
-  if (!snap) {
-    const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-    r.setPixelRatio(1); r.setSize(240, 400, false);
-    r.toneMapping = THREE.NeutralToneMapping;
-    const s = new THREE.Scene();
-    s.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture; s.environmentIntensity = 0.6;
-    s.add(new THREE.HemisphereLight('#f4eeff', '#e8c8a8', 1.3));
-    const key2 = new THREE.DirectionalLight('#fff4e4', 2.2); key2.position.set(-2, 4, 6); s.add(key2);
-    snap = { r, scene: s, cam: new THREE.PerspectiveCamera(22, 240 / 400, 0.1, 50) };
-  }
-  const p = makePerson(spec());
-  p.setExpr(moodExpr(mood));
-  posePerson(p, { walk: 0, t: 0, phase: 1.3 });
-  p.parts.head.rotation.y = 0.12;
-  p.root.rotation.y = 0.25;
-  snap.scene.add(p.root);
-  const h = p.height + 0.2;
-  snap.cam.position.set(0, h / 2, h / 2 / Math.tan((22 * Math.PI) / 360) + 0.6);
-  snap.cam.lookAt(0, h / 2 - 0.02, 0);
-  snap.r.render(snap.scene, snap.cam);
-  const url = snap.r.domElement.toDataURL('image/png');
-  snap.scene.remove(p.root); p.dispose();
-  shots.set(k, url);
-  return url;
 }

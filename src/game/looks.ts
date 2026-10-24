@@ -55,12 +55,7 @@ export const HAIR_COLOURS: Record<string, string> = {
 export const SKIN_TONES = ['#ffe3cc', '#f6cfa9', '#e6b48a', '#c98d63', '#9a6540', '#6b4329'];
 export const DOLL_SIZE: Record<Kind, [number, number]> = { baby: manifest.baby.size as [number, number], kid: manifest.kid.size as [number, number], adult: manifest.adult.size as [number, number] };
 
-/** Face details chosen in the wardrobe; anything missing comes from the person's own fixed defaults. Old saves have none. */
-export type FaceLook = Partial<{
-  eyes: string; eyeShape: string; eyeSize: number; eyeGap: number; lashes: string; brows: string; browColour: string;
-  browHeight: number; browTilt: number; nose: string; mouth: string; freckles: boolean; blush: number;
-}>;
-export type Look = { skin: number; hair: string; hairColor: string; outfit: Partial<Record<Slot, string>>; face?: FaceLook };
+export type Look = { skin: number; hair: string; hairColor: string; outfit: Partial<Record<Slot, string>> };
 
 /** Starting clothes: the first painted outfits; the rest unlock day by day and through wishes. */
 const STARTER_OUTFITS: Record<Kind, number[]> = { baby: [1, 2], kid: [1, 2, 3, 4], adult: [1, 2] };

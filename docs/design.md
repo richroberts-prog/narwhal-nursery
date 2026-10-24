@@ -1,13 +1,16 @@
 # Narwhal Nursery: agreed design (2026-10-24)
 
-- Name: Narwhal Nursery. The player is Isabelle, who owns it; Emily runs the front desk.
+- Name: Nursery (renamed from Narwhal Nursery). The player is Isabelle, who owns it; Emily runs the front desk.
 
 - Isabelle owns a nursery. Browser game, click or tap; big buttons, short words; no losing. Saves on the device.
 - Start screen: Play, and Start again (asks "Are you sure?").
-- Two floors, tap the stairs to switch:
-  - Downstairs: Emily's front desk, kitchen (snack), easel (painting), books (story), piano (song), toy box (blocks),
-    dress-up box, potty, garden door (outside).
-  - Upstairs: cots (nap), changing table (nappy), milk fridge (bottle), cuddle chair, wardrobe.
+- One level in 3D, two rooms side by side through an archway (tap ➡️/⬅️ and the camera slides across):
+  - Play room: Emily's front desk inside the glass front door, kitchen (snack), easel (painting), books (story),
+    piano (song), toy box (blocks), dress-up box, potty, garden door (outside).
+  - Baby room: cots (nap), changing table (nappy), milk fridge (bottle), cuddle chair, wardrobe.
+  - Parents wait outside on the pavement by the front door; children walk in through it.
+- Isabelle carries a child: she walks over, picks them up and carries them to what they'll do (and between rooms).
+- Children mostly play by themselves; chatting children walk together and say short lines in speech bubbles.
 - Isabelle is in the room and has a wardrobe page too.
 - Clock on the left, 8am to 5pm, runs by itself (a day is about 15 minutes; ⏩ jumps half an hour); chats and the wardrobe pause it.
   Families arrive and leave at different times.
@@ -26,7 +29,7 @@
 - Personality per child, shown as an icon: shy (cuddle first), wild (outside), sleepy (naps), hungry (snacks), creative (painting), chatty (stories).
 - Wardrobe: hats, headbands, dummies (age 2 and under), tops, bottoms, shoes; about 6 each to start; rename children there.
 - Emily: tap her for a hint.
-- Pick-up: parents queue at the desk; one chat per family; you tap what each child did today. Parents don't mention outfits.
+- Pick-up: parents queue outside the front door; one chat per family; you tap what each child did today. Parents don't mention outfits.
 - End of day: each child's hearts, then Next day.
 - Growth: day 1 has 3 children, then new families each day (1-3 children each), rising evenly to all 50 children on day 10. A busy floor draws its children smaller and stands them in staggered rows so everyone can still be tapped. New clothes (a hat, a headband, a dummy, or a top, bottoms, shoes) every day.
 - From 50 children the game keeps going; a good day (most children 4+ hearts) lets you pick 1 of 3 rewards:
@@ -43,3 +46,9 @@
   bodysuits, dummies; Isabelle: hats and outfits. Dummies are for newborns only (the baby doll).
 - Parents, Emily and helpers are fixed paintings; a family's children take a parent's skin tone.
 - Daily wishes: three goals a day (a child's favourite, a count of an activity, laughs or happy goodbyes); each one done unlocks a piece of clothing.
+
+## 3D nursery (2026-10-24)
+
+- The rooms are 3D (three.js) under the same tap layer; each room keeps its 1376 x 768 room-pixel layout, mapped to 3D
+  by a camera spot per room. The people stay the painted paper dolls, standing in the room as cut-outs facing the
+  camera (Rich tried Roblox-style 3D people and chose the painted ones).

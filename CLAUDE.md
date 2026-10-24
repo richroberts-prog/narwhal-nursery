@@ -1,6 +1,6 @@
 # Narwhal Nursery
 
-A nursery game for Isabelle: greet parents, look after children (newborn to 4) on two floors, dress them in the
+A nursery game for Isabelle: greet parents, look after children (newborn to 4) in two rooms on one level, dress them in the
 wardrobe, have her own child who grows a year a day. Static site on GitHub Pages; progress saved in each device's
 browser. Agreed design: `docs/design.md`.
 
@@ -16,7 +16,9 @@ browser. Agreed design: `docs/design.md`.
 - `src/game/`: pure rules, no DOM. `catalog.ts` lists (clothes, activities, helpers, names), `world.ts` the lasting
   nursery and how it grows, `day.ts` one day (clock, needs, desk queue, helpers), `talk.ts` parent lines, `save.ts`.
 - `src/game/looks.ts`: dolls (baby, kid, adult), hairstyles, hair colours, skin tones and clothes, from `public/art/manifest.json`.
-- `src/ui/`: `dolls.ts` stacks picture layers into people, `room.ts` the painted floors' tap zones, beds and front pieces, `sound.ts` Web Audio.
+- `src/ui/`: `dolls.ts` stacks picture layers into people, `room.ts` the one-level layout (play room 'down', baby room 'up',
+  parents outside) in room pixels: tap zones, beds, queue; `sound.ts` Web Audio. `ui/three/`: `world3d.ts` draws it in 3D
+  (a camera spot per room maps room pixels to 3D; painted people as cut-outs; Isabelle carrying), `furniture.ts`, `paint.ts`.
 - `art/`: the picture pipeline. `gen.py` paints with OpenRouter (Gemini image, about $0.07 a picture: money, so ask first);
   `build.py` turns painted dolls and their edits into layers (`public/art/{kid,baby,adult}`); `rooms.py` builds rooms,
   front pieces and sticker sheets. Raw paintings live in `art/src` (not in git); the built layers in `public/art` are.

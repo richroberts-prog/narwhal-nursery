@@ -158,8 +158,8 @@ export function blocks(w: number) {
 
 export function dressUp(w: number) {
   const g = new THREE.Group();
-  g.add(at(rbox(w * 0.8, 0.6, 0.6, 0.07, mat('#c9a6ff')), 0, 0.3, 0));
-  const lid = rbox(w * 0.82, 0.08, 0.62, 0.03, mat('#b58cf0')); lid.rotation.x = -1.1; g.add(at(lid, 0, 0.72, -0.4));
+  g.add(at(rbox(w * 0.8, 0.5, 0.6, 0.07, mat('#c9a6ff')), 0, 0.25, 0));
+  const lid = rbox(w * 0.82, 0.08, 0.62, 0.03, mat('#b58cf0')); lid.rotation.x = -0.35; g.add(at(lid, 0, 0.66, -0.12));
   g.add(at(rbox(0.6, 0.12, 0.4, 0.05, fabric('#ff8fb1')), -0.15, 0.62, 0.05));
   const crown = new THREE.Group(); for (let i = 0; i < 5; i++) { const c = shade(new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.12, 4), gold)); c.position.set(Math.cos(i * 1.256) * 0.1, 0.06, Math.sin(i * 1.256) * 0.1); crown.add(c); }
   crown.add(cyl(0.12, 0.12, 0.06, gold)); g.add(at(crown, 0.2, 0.7, 0.05));

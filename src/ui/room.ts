@@ -44,7 +44,7 @@ export const STATIONS: Station[] = [
 
 /** Front pieces: anyone standing just behind one would be hidden by it, so children keep out from behind them. */
 export const FRONTS: Record<Floor, { id: string; x: number; y: number; w: number; h: number; z: number }[]> = {
-  down: [{ id: 'desk', x: 370, y: 430, w: 170, h: 158, z: 600 }, { id: 'toys', x: 290, y: 650, w: 160, h: 112, z: 762 }, { id: 'chest', x: 960, y: 610, w: 170, h: 152, z: 762 }],
+  down: [{ id: 'desk', x: 370, y: 430, w: 170, h: 158, z: 600 }, { id: 'toys', x: 290, y: 650, w: 160, h: 112, z: 762 }, { id: 'chest', x: 960, y: 560, w: 170, h: 202, z: 762 }],
   up: [{ id: 'cotA', x: 150, y: 430, w: 300, h: 230, z: 630 }, { id: 'cotB', x: 330, y: 405, w: 200, h: 158, z: 562 }, { id: 'cotD', x: 590, y: 370, w: 170, h: 163, z: 534 }],
 };
 
