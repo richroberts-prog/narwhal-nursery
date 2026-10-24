@@ -166,15 +166,65 @@ function homeSpot(k: DayKid) {
   makeRoom(k);
 }
 
-/** Step aside from anyone already standing here, so no child ever hides right behind another. */
-function makeRoom(k: DayKid) {
-  const others = day.present().filter((o) => o !== k && o.floor === k.floor && o.x && !o.at.startsWith('bed:'));
-  const x0 = k.x;
-  // Too close: side by side, or one just in front of the other (a child in front covers whoever is behind).
-  const near = (o: DayKid) => Math.abs(o.x - k.x) < 60 && Math.abs(o.y - k.y) < 150;
-  for (let i = 1; i <= 10 && others.some(near); i++) {
-    k.x = Math.max(70, Math.min(1150, x0 + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 62));
+const standing = (floor: Floor) => day.present().filter((o) => o.floor === floor && o.x && !o.at.startsWith('bed:') && !(day.asleep(o) && o.floorNap));
+/** A busy floor draws its children smaller so up to 50 still fit: full size up to 16 on a floor. */
+const crowd = (floor: Floor) => Math.min(1, Math.sqrt(16 / Math.max(1, standing(floor).length)));
+
+/** Too close: side by side, or one just in front of the other (a child in front covers whoever is behind). A busy floor
+ * (over 22 on it) stands in staggered rows: the next row along is close, but never straight in front of anyone. */
+const tooClose = (a: DayKid, b: DayKid, c: number, h: number) => {
+  const dx = Math.abs(a.x - b.x), dy = Math.abs(a.y - b.y) / h;
+  return c < 0.85 ? (dx < 60 * c && dy < 90 * c) || (dx < 25 * c && dy < 150 * c) : dx < 60 * c && dy < 150 * c;
+};
+/** How tall the children on a floor are: upstairs babies sit, so they need less room in front. */
+const tall = (floor: Floor) => (floor === 'up' ? 0.6 : 1);
+
+/** Whatever moved them, nobody stays standing on top of someone else. */
+function spreadOut() {
+  for (const f of ['down', 'up'] as Floor[]) {
+    const c = crowd(f), h = tall(f);
+    const ok: DayKid[] = [];
+    for (const k of standing(f)) {
+      if (ok.some((o) => tooClose(o, k, c, h))) makeRoom(k);
+      ok.push(k);
+    }
   }
+}
+
+/** Step aside from anyone already standing here, so no child ever hides right behind another; a busy floor fills a second row. */
+function makeRoom(k: DayKid) {
+  const others = standing(k.floor).filter((o) => o !== k);
+  const c = crowd(k.floor), h = tall(k.floor);
+  const x0 = k.x, y0 = k.y;
+  const near = (o: DayKid) => tooClose(o, k, c, h);
+  // Never behind a piece of furniture that's drawn in front (desk, chest, cots).
+  const hidden = () => FRONTS[k.floor].some((f) => k.x > f.x - 25 && k.x < f.x + f.w + 25 && k.y > f.y + 30 && k.y < f.z);
+  // Places to try, nearest first: a quiet floor steps out sideways (and a row forwards or back); a busy floor fills
+  // fixed staggered rows from the front, so no space is wasted between rows that don't line up.
+  const spots: [number, number][] = [];
+  if (c < 0.85) {
+    for (let r = 0, y = 760; y >= 560; r++, y -= 100 * c * h) {
+      for (let x = 70 + (r % 2) * 31 * c; x <= 1150; x += 62 * c) spots.push([x, y]);
+    }
+    spots.sort((a, b) => Math.hypot(a[0] - x0, (a[1] - y0) * 2) - Math.hypot(b[0] - x0, (b[1] - y0) * 2));
+  } else {
+    for (const dy of [0, -100, 100, -200, 200]) {
+      const y = Math.round(Math.max(560, Math.min(760, y0 + dy * c * h)));
+      // Out from where they wanted to be, both ways, right across the floor.
+      for (let i = 0; i <= 2 * Math.ceil(1080 / (62 * c)); i++) {
+        const x = x0 + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 62 * c;
+        if (x >= 70 && x <= 1150) spots.push([x, y]);
+      }
+    }
+  }
+  let best = { x: x0, y: y0, bad: Infinity };
+  for (const [x, y] of spots) {
+    k.x = x; k.y = y;
+    const bad = others.filter(near).length + (hidden() ? 1 : 0);
+    if (!bad) return;
+    if (bad < best.bad) best = { x, y, bad };
+  }
+  k.x = best.x; k.y = best.y; // the whole floor is full: the least crowded spot
 }
 
 const lookKey = (l: Look) => `${l.skin}|${l.hair}|${l.hairColor}|${Object.values(l.outfit).join(',')}`;
@@ -269,6 +319,7 @@ function render() {
   app.querySelector<HTMLElement>('.baby')!.hidden = !!own;
 
   // Children.
+  spreadOut();
   for (const k of s.kids) {
     if (!k.here) continue;
     const c = day.child(k.id);
@@ -288,9 +339,10 @@ function render() {
       place(e, bed ? bed.x : k.x, bed ? bed.y : k.y, [bh, bw, 0], k.floor, bed ? bed.z : k.y);
     } else {
       const [bw, bh, feet] = dollBox(c.age);
-      const sc = depth(k.y);
+      const sc = depth(k.y) * crowd(k.floor);
       // Layered by depth only: children step aside from each other (makeRoom), and furniture fronts stay in front.
       place(e, k.x, k.y, [bw * sc, bh * sc, feet * sc], k.floor, k.y);
+      e.style.setProperty('--crowd', String(crowd(k.floor)));
     }
     e.querySelector('.tag')!.textContent = `${c.fam === OWN ? '💖' : ''}${PERSONALITIES[c.pers].e} ${c.name}`;
     const b = e.querySelector<HTMLElement>('.bubble')!;
@@ -795,7 +847,7 @@ function endOfDay() {
     const b = news.birthday;
     const lines = [
       b ? (b.age >= GROWN_UP ? `${b.name} is ${b.age} and all grown up! ${b.name} is a helper now! 🎉` : `Happy birthday, ${b.name}! ${b.name} is ${b.age} today! 🎂`) : '',
-      news.family ? 'A new family is coming today!' : '',
+      news.families.length > 1 ? `${news.families.length} new families are coming today!` : news.families.length ? 'A new family is coming today!' : '',
       news.clothes.length ? `New in the wardrobe: ${news.clothes.map((i) => i.name).join(', ')}!` : '',
     ].filter(Boolean);
     say('emily', `Good morning, Isabelle! ${lines.join(' ')}`);

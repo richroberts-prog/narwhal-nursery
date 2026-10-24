@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACTS, BOY_NAMES, GIRL_NAMES, MAX_CHILDREN, PERSONALITIES, Personality, allowed, favourite } from '../src/game/catalog';
+import { ACTS, BOY_NAMES, FULL_DAY, GIRL_NAMES, MAX_CHILDREN, PERSONALITIES, Personality, allowed, favourite } from '../src/game/catalog';
 import { HAIR, ITEM, ITEMS, NEEDED, SLOTS, STARTER, fits, kindOf } from '../src/game/looks';
 import { CLOSE, Day, METERS, METER_OF, OPEN, SPEED, clock, newDay } from '../src/game/day';
 import { KEY, load, save, wipe } from '../src/game/save';
@@ -49,15 +49,18 @@ describe('the nursery grows', () => {
     expect(STARTER.length).toBeGreaterThan(10);
   });
 
-  it('adds one family of 1-3 children a day, siblings of different ages 0-4, never past 22', () => {
+  it('grows evenly from 3 children on day 1 to all 50 on day 10 in families of 1-3, siblings of different ages 0-4', () => {
     const rng = seeded(2);
     const w = newWorld(rng);
+    const counts = [w.children.length];
     for (let d = 0; d < 40; d++) {
-      const before = w.children.length;
-      const { family } = nextDay(w, rng);
-      if (before < MAX_CHILDREN) expect(family!.kids.length).toBeGreaterThanOrEqual(1);
-      else expect(family).toBeNull();
+      const { families } = nextDay(w, rng);
+      if (w.day > FULL_DAY) expect(families).toEqual([]);
+      else expect(families.length).toBeGreaterThanOrEqual(1);
+      if (w.day <= FULL_DAY) counts.push(w.children.length);
     }
+    expect(counts).toEqual([3, 8, 13, 19, 24, 29, 34, 40, 45, 50]);
+    expect(MAX_CHILDREN).toBe(50);
     expect(w.children).toHaveLength(MAX_CHILDREN);
     for (const f of w.families) {
       expect(f.kids.length).toBeLessThanOrEqual(3);
@@ -305,7 +308,7 @@ describe('a day', () => {
     for (const k of d.present()) { for (const m of METERS) k.m[m] = 0; k.busyUntil = 0; }
     const up = d.present().find((k) => k.floor === 'up');
     if (up) up.m.toilet = 90;
-    const down = d.present().find((k) => k.floor === 'down')!;
+    const down = d.present().find((k) => k.floor === 'down' && d.child(k.id).age >= 2)!; // a snack, not a bottle
     down.m.hunger = 80;
     d.s.next.emily = d.s.t;
     const ev = d.advance(1).filter((e) => e.type === 'helper');
@@ -335,13 +338,13 @@ describe('wishes', () => {
 });
 
 describe('rewards', () => {
-  it('only come with 22 children and a good day', () => {
+  it('only come with all 50 children and a good day', () => {
     const rng = seeded(15);
     const w = newWorld(rng);
     expect(earnsReward(w, [5, 5, 5])).toBe(false);
     for (let i = 0; i < 40; i++) nextDay(w, rng);
-    expect(earnsReward(w, Array(22).fill(4))).toBe(true);
-    expect(earnsReward(w, [...Array(16).fill(5), ...Array(6).fill(1)])).toBe(false);
+    expect(earnsReward(w, Array(50).fill(4))).toBe(true);
+    expect(earnsReward(w, [...Array(37).fill(5), ...Array(13).fill(1)])).toBe(false);
   });
 
   it('offer up to 3, never a fifth helper or a repeat', () => {
@@ -387,7 +390,7 @@ describe("Isabelle's own child", () => {
     expect(d.present().map((k) => k.id)).toContain(w.own);
   });
 
-  it("grows a year a day, doesn't count toward the 22, and at 16 helps with anything", () => {
+  it("grows a year a day, doesn't count toward the 50, and at 16 helps with anything", () => {
     const rng = seeded(32);
     const w = newWorld(rng);
     const c = haveChild(w, baby);
@@ -398,7 +401,7 @@ describe("Isabelle's own child", () => {
     expect(HAIR.adult).toContain(c.hair);
     expect(nursery(w)).toHaveLength(MAX_CHILDREN);
     expect(w.children).toHaveLength(MAX_CHILDREN + 1);
-    expect(earnsReward(w, Array(22).fill(5))).toBe(true);
+    expect(earnsReward(w, Array(50).fill(5))).toBe(true);
     const d = new Day(w, newDay(w, rng), rng);
     expect(d.kid(c.id).here).toBe(false);
     d.start();
@@ -448,6 +451,6 @@ describe('talk and saving', () => {
       if (earnsReward(w, hearts)) { const r = rewardChoices(w, rng); if (r.length) takeReward(w, r[0]); }
       nextDay(w, rng);
     }
-    expect(w.children).toHaveLength(22);
+    expect(w.children).toHaveLength(MAX_CHILDREN);
   });
 });

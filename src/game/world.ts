@@ -1,5 +1,5 @@
 // The nursery that lasts between days: families, children, clothes, helpers, furniture, and how it grows.
-import { BOY_NAMES, FURNITURE, FurnId, GIRL_NAMES, HELPERS, HelperId, MAX_CHILDREN, MAX_HELPERS, PERSONALITIES, Personality } from './catalog';
+import { BOY_NAMES, FULL_DAY, FURNITURE, FurnId, GIRL_NAMES, HELPERS, HelperId, MAX_CHILDREN, MAX_HELPERS, PERSONALITIES, Personality } from './catalog';
 import { ITEM, ITEMS, Item, Look, STARTER, Sex, kindOf, randomLook, regrow } from './looks';
 
 export type Rng = () => number;
@@ -79,9 +79,12 @@ export function newWorld(rng: Rng = Math.random): World {
   return w;
 }
 
-/** A new family of 1 to 3 children, all different ages, never past the 22 children limit. */
-export function addFamily(w: World, rng: Rng, size = 1 + Math.floor(rng() * 3)): Family | null {
-  const room = MAX_CHILDREN - nursery(w).length;
+/** How many children the nursery has by this day: 3 on day 1, rising evenly to all 50 on day 10. */
+export const childrenBy = (day: number) => Math.min(MAX_CHILDREN, Math.round(3 + ((MAX_CHILDREN - 3) * (day - 1)) / (FULL_DAY - 1)));
+
+/** A new family of 1 to 3 children, all different ages, never past `limit` children (the 50 children limit). */
+export function addFamily(w: World, rng: Rng, size = 1 + Math.floor(rng() * 3), limit = MAX_CHILDREN): Family | null {
+  const room = Math.min(limit, MAX_CHILDREN) - nursery(w).length;
   if (room <= 0) return null;
   const mum = pick(rng, Object.keys(PARENTS.mums)) as Mum;
   const dad = pick(rng, dadsFor(mum));
@@ -92,7 +95,8 @@ export function addFamily(w: World, rng: Rng, size = 1 + Math.floor(rng() * 3)):
   for (let i = 0; i < Math.min(size, room); i++) {
     const age = ages[i];
     const skin = pick(rng, familyTones(mum, dad));
-    const sex: Sex = rng() < 0.5 ? 'boy' : 'girl';
+    let sex: Sex = rng() < 0.5 ? 'boy' : 'girl';
+    if (!free[sex].length) sex = sex === 'boy' ? 'girl' : 'boy'; // keep every name different
     const child: Child = {
       ...randomLook(rng, kindOf(age), w.unlocked, skin, sex),
       id: w.nextId++, name: free[sex].shift() ?? `Baby ${w.nextId}`, age, fam: fam.id, sex,
@@ -114,11 +118,12 @@ export function unlockSome(w: World, n: number, rng: Rng = Math.random): Item[] 
   return got;
 }
 
-/** Move to the next day: two new clothes, below 22 children a new family, and Isabelle's child a year older. */
+/** Move to the next day: two new clothes, new families up to the day's number of children, and Isabelle's child a year older. */
 export function nextDay(w: World, rng: Rng = Math.random) {
   w.day++;
   const clothes = unlockSome(w, 2, rng);
-  const family = addFamily(w, rng);
+  const families: Family[] = [];
+  for (let f: Family | null; nursery(w).length < childrenBy(w.day) && (f = addFamily(w, rng, undefined, childrenBy(w.day))); ) families.push(f);
   const own = ownChild(w);
   let birthday: Child | null = null;
   if (own && own.age < GROWN_UP) {
@@ -127,12 +132,12 @@ export function nextDay(w: World, rng: Rng = Math.random) {
     Object.assign(own, regrow(own, before, kindOf(own.age), w.unlocked, rng, own.sex));
     birthday = own;
   }
-  return { clothes, family, birthday };
+  return { clothes, families, birthday };
 }
 
 export type Reward = { kind: 'helper'; id: HelperId } | { kind: 'furniture'; id: FurnId } | { kind: 'clothes'; ids: string[] };
 
-/** Rewards start once all 22 children come; a good day is three in four children on 4 hearts or more. */
+/** Rewards start once all 50 children come; a good day is three in four children on 4 hearts or more. */
 export function earnsReward(w: World, hearts: number[]): boolean {
   if (nursery(w).length < MAX_CHILDREN || !hearts.length) return false;
   return hearts.filter((h) => h >= 4).length / hearts.length >= 0.75;

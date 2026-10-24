@@ -61,13 +61,17 @@ export const FURNITURE: Record<FurnId, { name: string; e: string; floor: Floor; 
   horse: { name: 'Rocking horse', e: '🐴', floor: 'up', minAge: 1 },
 };
 
-export const MAX_CHILDREN = 22;
+export const MAX_CHILDREN = 50;
+/** The day the nursery is full. */
+export const FULL_DAY = 10;
 
 export const BOY_NAMES = [
   'Max', 'Oscar', 'Leo', 'Alfie', 'Theo', 'Noah', 'Freddie', 'Arlo', 'Jack', 'Harry', 'Teddy', 'George', 'Finn', 'Archie', 'Sam',
-  'Louie', 'Albie', 'Ezra', 'Reggie', 'Zak', 'Kai', 'Ollie', 'Hugo', 'Ravi',
+  'Louie', 'Albie', 'Ezra', 'Reggie', 'Zak', 'Kai', 'Ollie', 'Hugo', 'Ravi', 'Henry', 'Charlie', 'Arthur', 'Jude', 'Rory', 'Otis',
+  'Billy', 'Ronnie', 'Luca', 'Elijah', 'Stanley', 'Frankie', 'Idris', 'Ibrahim',
 ];
 export const GIRL_NAMES = [
   'Lily', 'Ava', 'Rosie', 'Isla', 'Poppy', 'Ella', 'Mia', 'Grace', 'Daisy', 'Evie', 'Ruby', 'Willow', 'Maisie', 'Florence', 'Ivy',
-  'Olivia', 'Sophie', 'Millie', 'Bella', 'Hana', 'Amara', 'Nia', 'Luna', 'Zara',
+  'Olivia', 'Sophie', 'Millie', 'Bella', 'Hana', 'Amara', 'Nia', 'Luna', 'Zara', 'Freya', 'Matilda', 'Phoebe', 'Esme', 'Alice',
+  'Harriet', 'Martha', 'Elsie', 'Lottie', 'Clara', 'Iris', 'Nancy', 'Aisha', 'Priya',
 ];

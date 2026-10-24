@@ -1,5 +1,6 @@
 import { Page, expect, test } from '@playwright/test';
-import { CLOSE, newDay } from '../src/game/day';
+import { MAX_CHILDREN } from '../src/game/catalog';
+import { CLOSE, Day, OPEN, newDay } from '../src/game/day';
 import { KEY } from '../src/game/save';
 import { newWorld, nextDay } from '../src/game/world';
 
@@ -221,18 +222,50 @@ test('start again asks first, then wipes', async ({ page }) => {
   await expect(page.locator('.p.parent')).toHaveCount(2);
 });
 
-test('with 22 children a good day gives a reward to pick', async ({ page }) => {
+/** A world on day 10, when all 50 children come. */
+function fullWorld() {
   const w = newWorld();
-  while (w.children.length < 22) nextDay(w);
+  while (w.children.length < MAX_CHILDREN) nextDay(w);
+  expect(w.day).toBe(10);
+  return w;
+}
+
+const seed = (page: Page, world: unknown, today: unknown) => page.addInitScript(([k, v]) => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem(k, v); sessionStorage.setItem('seeded', '1'); } }, [KEY, JSON.stringify({ world, today })]);
+
+test('day 10: all 50 children are in and every one can be tapped on both floors', async ({ page }) => {
+  const w = fullWorld();
+  const d = new Day(w, newDay(w));
+  d.start();
+  d.s.t = OPEN + 60;
+  for (const f of d.s.fams) { f.leave = CLOSE; d.dropOff(f.id); }
+  await seed(page, w, d.s);
+  await page.goto('/');
+  await page.locator('.play').tap();
+  await expect(page.locator('.dayno')).toHaveText('Day 10');
+  await expect(page.locator('.p.kid')).toHaveCount(MAX_CHILDREN);
+  for (const f of ['down', 'up'] as const) {
+    await goFloor(page, f);
+    await page.waitForTimeout(600);
+    await shot(page, `10-fifty-${f}`);
+  }
+  // In a crowd a child walking past may cover another for a moment; nobody stays hidden.
+  for (let round = 0; round < 4; round++) {
+    for (const f of ['down', 'up'] as const) { await goFloor(page, f); await expect(() => allTappable(page)).toPass({ timeout: 4000 }); }
+    await page.waitForTimeout(1500);
+  }
+});
+
+test('with all 50 children a good day gives a reward to pick', async ({ page }) => {
+  const w = fullWorld();
   const today = newDay(w);
   today.t = CLOSE;
   for (const f of today.fams) f.state = 'gone';
   for (const k of today.kids) { k.hearts = 5; k.did = ['story']; }
-  await page.addInitScript(([k, v]) => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem(k, v); sessionStorage.setItem('seeded', '1'); } }, [KEY, JSON.stringify({ world: w, today })]);
+  await seed(page, w, today);
   await page.goto('/');
   await page.locator('.play').tap();
   await expect(page.locator('.reward')).toHaveCount(3);
-  await expect(page.locator('.kc')).toHaveCount(22);
+  await expect(page.locator('.kc')).toHaveCount(MAX_CHILDREN);
   await expect(page.locator('.next')).toBeHidden();
   await shot(page, '07-reward');
   const helper = page.locator('.reward', { hasText: 'Helper' }).first();
