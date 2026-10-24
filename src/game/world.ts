@@ -19,6 +19,30 @@ export const PARENTS = {
   mums: { 'mum-1': 0, 'mum-2': 4, 'gran-1': 2, 'mum-3': 2, 'mum-4': 0, 'mum-5': 3 },
   dads: { 'dad-1': 3, 'dad-2': 0, 'dad-3': 1, 'dad-4': 5, 'grandad-1': 0, 'dad-5': 1 },
 } as const;
+type Mum = keyof typeof PARENTS.mums;
+type Dad = keyof typeof PARENTS.dads;
+
+/** Parents who look alike: a dad within one skin tone of the mum. */
+const dadsFor = (mum: Mum) => (Object.keys(PARENTS.dads) as Dad[]).filter((d) => Math.abs(PARENTS.dads[d] - PARENTS.mums[mum]) <= 1);
+/** Children take a skin tone from between their parents' tones. */
+export function familyTones(mum: string, dad: string): number[] {
+  const a = PARENTS.mums[mum as Mum];
+  const b = PARENTS.dads[dad as Dad];
+  return Array.from({ length: Math.abs(a - b) + 1 }, (_, i) => Math.min(a, b) + i);
+}
+
+/** A saved nursery from before families were matched: give each mum a dad who looks like her, and each child a tone between them. */
+export function matchFamilies(w: World, rng: Rng = Math.random) {
+  for (const f of w.families) {
+    if (!dadsFor(f.mum as Mum).includes(f.dad as Dad)) f.dad = pick(rng, dadsFor(f.mum as Mum));
+    const tones = familyTones(f.mum, f.dad);
+    for (const id of f.kids) {
+      const c = w.children.find((x) => x.id === id)!;
+      if (!tones.includes(c.skin)) c.skin = tones.reduce((best, t) => (Math.abs(t - c.skin) < Math.abs(best - c.skin) ? t : best));
+    }
+  }
+}
+
 export type Family = { id: number; kids: number[]; mum: string; dad: string; visits: number; last?: { day: number; hearts: Record<number, number> } };
 export type World = {
   v: 3; day: number; nextId: number; families: Family[]; children: Child[]; unlocked: string[];
@@ -57,15 +81,15 @@ export function newWorld(rng: Rng = Math.random): World {
 export function addFamily(w: World, rng: Rng, size = 1 + Math.floor(rng() * 3)): Family | null {
   const room = MAX_CHILDREN - nursery(w).length;
   if (room <= 0) return null;
-  const mum = pick(rng, Object.keys(PARENTS.mums)) as keyof typeof PARENTS.mums;
-  const dad = pick(rng, Object.keys(PARENTS.dads)) as keyof typeof PARENTS.dads;
+  const mum = pick(rng, Object.keys(PARENTS.mums)) as Mum;
+  const dad = pick(rng, dadsFor(mum));
   const fam: Family = { id: w.nextId++, kids: [], mum, dad, visits: 0 };
   const used = new Set(w.children.map((c) => c.name));
   const names = shuffle(rng, NAMES.filter((n) => !used.has(n)));
   const ages = shuffle(rng, [0, 1, 2, 3, 4]);
   for (let i = 0; i < Math.min(size, room); i++) {
     const age = ages[i];
-    const skin = pick(rng, [PARENTS.mums[mum], PARENTS.dads[dad]]);
+    const skin = pick(rng, familyTones(mum, dad));
     const child: Child = {
       ...randomLook(rng, kindOf(age), w.unlocked, skin),
       id: w.nextId++, name: names[i] ?? `Baby ${w.nextId}`, age, fam: fam.id,

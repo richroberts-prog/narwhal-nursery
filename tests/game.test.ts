@@ -4,7 +4,7 @@ import { HAIR, ITEM, ITEMS, NEEDED, SLOTS, STARTER, kindOf } from '../src/game/l
 import { CLOSE, Day, METERS, METER_OF, OPEN, SPEED, clock, newDay } from '../src/game/day';
 import { KEY, load, save, wipe } from '../src/game/save';
 import { heartsLine, hello, tip } from '../src/game/talk';
-import { GROWN_UP, World, earnsReward, haveChild, newWorld, nextDay, nursery, ownChild, rewardChoices, takeReward } from '../src/game/world';
+import { GROWN_UP, PARENTS, World, earnsReward, familyTones, haveChild, matchFamilies, newWorld, nextDay, nursery, ownChild, rewardChoices, takeReward } from '../src/game/world';
 
 function seeded(seed: number) {
   return () => {
@@ -88,6 +88,37 @@ describe('the nursery grows', () => {
       for (const slot of NEEDED.filter((s) => SLOTS[kind].includes(s))) expect(c.outfit[slot]).toBeTruthy();
       for (const id of Object.values(c.outfit)) if (id) expect(ITEM[id].kind).toBe(kind);
     }
+  });
+});
+
+describe('families look like families', () => {
+  const tone = (who: string) => ({ ...PARENTS.mums, ...PARENTS.dads } as Record<string, number>)[who];
+
+  it('parents are within one skin tone, and every child is between them', () => {
+    for (let seed = 1; seed < 40; seed++) {
+      const rng = seeded(seed);
+      const w = newWorld(rng);
+      for (let i = 0; i < 12; i++) nextDay(w, rng);
+      for (const f of w.families) {
+        expect(Math.abs(tone(f.mum) - tone(f.dad))).toBeLessThanOrEqual(1);
+        for (const id of f.kids) {
+          const skin = w.children.find((c) => c.id === id)!.skin;
+          expect(skin).toBeGreaterThanOrEqual(Math.min(tone(f.mum), tone(f.dad)));
+          expect(skin).toBeLessThanOrEqual(Math.max(tone(f.mum), tone(f.dad)));
+        }
+      }
+    }
+  });
+
+  it('an old save with a mismatched family is put right on load', () => {
+    const w = newWorld(seeded(41));
+    const f = w.families[0];
+    f.mum = 'mum-1'; // lightest
+    f.dad = 'dad-4'; // darkest
+    for (const id of f.kids) w.children.find((c) => c.id === id)!.skin = 5;
+    matchFamilies(w, seeded(41));
+    expect(Math.abs(tone(f.mum) - tone(f.dad))).toBeLessThanOrEqual(1);
+    for (const id of f.kids) expect(familyTones(f.mum, f.dad)).toContain(w.children.find((c) => c.id === id)!.skin);
   });
 });
 

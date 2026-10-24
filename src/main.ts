@@ -5,7 +5,7 @@ import { CLOSE, Day, DayKid, Event, MAX_HEARTS, METERS, METER_INFO, SPEED, WANT,
 import { HAIR, HAIR_COLOURS, ITEM, Kind, Look, NEEDED, SKIN_TONES, SLOTS, SLOT_LABEL, Slot, itemsFor, kindOf, randomLook, regrow } from './game/looks';
 import { load, save, wipe } from './game/save';
 import { checkTip, didLabel, heartsLine, hello, homeTalk, reaction, smallTalk, tip, tipAnswer, tipMore, yesterday } from './game/talk';
-import { Child, Family, GROWN_UP, NewChild, OWN, Reward, World, earnsReward, familyName, haveChild, newWorld, nextDay, ownChild, ownIsHelper, rewardChoices, takeReward, unlockSome } from './game/world';
+import { Child, Family, GROWN_UP, NewChild, OWN, Reward, World, earnsReward, familyName, haveChild, matchFamilies, newWorld, nextDay, ownChild, ownIsHelper, rewardChoices, takeReward, unlockSome } from './game/world';
 import { Mood, doll, dollBox, lyingDoll, sprite } from './ui/dolls';
 import { DOOR, EMILY_SPOT, FRONTS, HOME_SPOT, PLAY_AREA, QUEUE, ROOM_H, ROOM_W, SIZES, STATIONS, Station, furnitureStations } from './ui/room';
 import { actSound, setMuted, sfx, startMusic } from './ui/sound';
@@ -816,6 +816,7 @@ function begin(saved: ReturnType<typeof load>) {
   started = true;
   if (saved) {
     w = saved.world;
+    matchFamilies(w);
     setMuted(w.muted);
     if (saved.today && saved.today.day === w.day) {
       day = new Day(w, saved.today);
