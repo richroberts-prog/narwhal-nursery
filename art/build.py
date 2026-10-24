@@ -176,6 +176,20 @@ OUTFITS = {
     8: (485, 660, ('headband', 'Cat ears'), 'Blue glasses', 'Lilac hoodie', 'Pink leggings', 'White trainers'),
     9: (516, 640, ('hat', 'Pirate hat'), None, 'Sailor top', 'Black trousers', 'Black boots'),
     10: (460, 662, ('headband', 'Unicorn horn'), None, 'Fluffy cardigan', 'Yellow skirt', 'Gold shoes'),
+    11: (446, 590, ('hat', 'Backwards cap'), None, 'Football shirt', 'Football shorts', 'Football boots'),
+    # The edit gave the doll hair under the helmet: cut it at the eyebrows so the hair isn't part of the hat.
+    12: (506, 640, ('hat', 'Fire helmet', 'brow'), None, 'Fire jacket', 'Fire trousers', 'Black wellies'),
+    13: (482, 662, ('hat', 'Grey beanie'), None, 'Rocket hoodie', 'Cargo shorts', 'Grey trainers'),
+    14: (436, 674, ('hat', 'Flat cap'), None, 'Shirt and bow tie', 'Smart trousers', 'Brown shoes'),
+    15: (466, 652, None, 'Cool sunglasses', 'Lightning t-shirt', 'Denim shorts', 'Light-up trainers'),
+    16: (482, 650, ('hat', 'Hard hat'), None, 'Hi-vis vest', 'Work jeans', 'Work boots'),
+    17: (420, 664, ('headband', 'Princess tiara'), None, 'Sparkly princess top', 'Princess skirt', 'Glitter shoes'),
+    18: (436, 664, ('headband', 'Butterfly clip'), None, 'Sunflower t-shirt', 'Denim skirt', 'Flower sandals'),
+    19: (426, 674, ('hat', 'Pink beret'), None, 'Frilly blouse', 'Tartan skirt', 'Red bow shoes'),
+    # The heart sunglasses sit up on the head, so they count as a headband.
+    20: (484, 664, ('headband', 'Heart sunglasses'), None, 'Unicorn hoodie', 'Sparkly leggings', 'Pink sparkly trainers'),
+    21: (446, 676, ('headband', 'Ballet headband'), None, 'Ballet leotard', 'Ballet tutu', 'Ballet shoes'),
+    22: (470, 664, ('hat', 'Floppy sun hat'), None, 'Strawberry dress', 'Strawberry skirt', 'Jelly sandals'),
 }
 EXTRAS = {'wings': ('Fairy wings', 'back'), 'cape': ('Super cape', 'back'), 'necklace': ('Bead necklace', 'front'), 'backpack': ('Backpack', 'front')}
 DOLL_WAIST = 437  # where the plain kid doll's shorts start
@@ -201,11 +215,13 @@ def outfits(doll):
     items = []
     y0 = doll.box[1]
     rows = doll.rows + y0
-    for n, (waist, shoe, (head_cat, head), glasses, top, bottoms, shoes) in OUTFITS.items():
+    for n, (waist, shoe, head, glasses, top, bottoms, shoes) in OUTFITS.items():
         a = doll.load(f'kid-outfit-{n}.png')
         ch = changed(a, doll.base)
-        parts = [
-            (head_cat, head, ch & (doll.rows < (doll.brow if glasses else doll.eyes_end))),
+        parts = [] if head is None else [
+            (head[0], head[1], ch & (doll.rows < (doll.brow if glasses or len(head) > 2 else doll.eyes_end))),
+        ]
+        parts += [
             ('top', top, ch & (doll.rows >= doll.neck - 14) & (rows < waist)),
             ('bottoms', bottoms, ch & (rows >= waist) & (rows < shoe)),
             ('shoes', shoes, ch & (rows >= shoe)),
@@ -228,7 +244,8 @@ def outfits(doll):
     return items
 
 
-BABY_OUTFITS = {1: ('Bonnet', 'Duck bodysuit'), 2: ('Bobble hat', 'Stripy bodysuit'), 3: ('Pink bow', 'Spotty bodysuit'), 4: ('Daisy headband', 'Dino bodysuit')}
+BABY_OUTFITS = {1: ('Bonnet', 'Duck bodysuit'), 2: ('Bobble hat', 'Stripy bodysuit'), 3: ('Pink bow', 'Spotty bodysuit'), 4: ('Daisy headband', 'Dino bodysuit'),
+                5: ('Blue cap', 'Car bodysuit'), 6: ('Bear hat', 'Bear bodysuit'), 7: ('Flower headband', 'Tutu bodysuit'), 8: ('Bunny ears', 'Bunny bodysuit')}
 DUMMY_COLOURS = {'pink': '#ff8fb8', 'blue': '#6fb6ff', 'yellow': '#ffd84d', 'green': '#6fd39b', 'purple': '#b48cf0'}
 ADULT_OUTFITS = {1: ('Pink bow', 'Pink dress'), 2: ('Sun hat', 'Sundress'), 3: ('Spotty headband', 'Dungarees'), 4: (None, 'Jumper dress'), 5: ('Tiara', 'Party dress')}
 

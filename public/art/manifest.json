@@ -233,6 +233,246 @@
     "name": "Gold shoes"
    },
    {
+    "id": "hat-11",
+    "cat": "hat",
+    "name": "Backwards cap"
+   },
+   {
+    "id": "top-11",
+    "cat": "top",
+    "name": "Football shirt"
+   },
+   {
+    "id": "bottoms-11",
+    "cat": "bottoms",
+    "name": "Football shorts"
+   },
+   {
+    "id": "shoes-11",
+    "cat": "shoes",
+    "name": "Football boots"
+   },
+   {
+    "id": "hat-12",
+    "cat": "hat",
+    "name": "Fire helmet"
+   },
+   {
+    "id": "top-12",
+    "cat": "top",
+    "name": "Fire jacket"
+   },
+   {
+    "id": "bottoms-12",
+    "cat": "bottoms",
+    "name": "Fire trousers"
+   },
+   {
+    "id": "shoes-12",
+    "cat": "shoes",
+    "name": "Black wellies"
+   },
+   {
+    "id": "hat-13",
+    "cat": "hat",
+    "name": "Grey beanie"
+   },
+   {
+    "id": "top-13",
+    "cat": "top",
+    "name": "Rocket hoodie"
+   },
+   {
+    "id": "bottoms-13",
+    "cat": "bottoms",
+    "name": "Cargo shorts"
+   },
+   {
+    "id": "shoes-13",
+    "cat": "shoes",
+    "name": "Grey trainers"
+   },
+   {
+    "id": "hat-14",
+    "cat": "hat",
+    "name": "Flat cap"
+   },
+   {
+    "id": "top-14",
+    "cat": "top",
+    "name": "Shirt and bow tie"
+   },
+   {
+    "id": "bottoms-14",
+    "cat": "bottoms",
+    "name": "Smart trousers"
+   },
+   {
+    "id": "shoes-14",
+    "cat": "shoes",
+    "name": "Brown shoes"
+   },
+   {
+    "id": "top-15",
+    "cat": "top",
+    "name": "Lightning t-shirt"
+   },
+   {
+    "id": "bottoms-15",
+    "cat": "bottoms",
+    "name": "Denim shorts"
+   },
+   {
+    "id": "shoes-15",
+    "cat": "shoes",
+    "name": "Light-up trainers"
+   },
+   {
+    "id": "glasses-15",
+    "cat": "glasses",
+    "name": "Cool sunglasses"
+   },
+   {
+    "id": "hat-16",
+    "cat": "hat",
+    "name": "Hard hat"
+   },
+   {
+    "id": "top-16",
+    "cat": "top",
+    "name": "Hi-vis vest"
+   },
+   {
+    "id": "bottoms-16",
+    "cat": "bottoms",
+    "name": "Work jeans"
+   },
+   {
+    "id": "shoes-16",
+    "cat": "shoes",
+    "name": "Work boots"
+   },
+   {
+    "id": "headband-17",
+    "cat": "headband",
+    "name": "Princess tiara"
+   },
+   {
+    "id": "top-17",
+    "cat": "top",
+    "name": "Sparkly princess top"
+   },
+   {
+    "id": "bottoms-17",
+    "cat": "bottoms",
+    "name": "Princess skirt"
+   },
+   {
+    "id": "shoes-17",
+    "cat": "shoes",
+    "name": "Glitter shoes"
+   },
+   {
+    "id": "headband-18",
+    "cat": "headband",
+    "name": "Butterfly clip"
+   },
+   {
+    "id": "top-18",
+    "cat": "top",
+    "name": "Sunflower t-shirt"
+   },
+   {
+    "id": "bottoms-18",
+    "cat": "bottoms",
+    "name": "Denim skirt"
+   },
+   {
+    "id": "shoes-18",
+    "cat": "shoes",
+    "name": "Flower sandals"
+   },
+   {
+    "id": "hat-19",
+    "cat": "hat",
+    "name": "Pink beret"
+   },
+   {
+    "id": "top-19",
+    "cat": "top",
+    "name": "Frilly blouse"
+   },
+   {
+    "id": "bottoms-19",
+    "cat": "bottoms",
+    "name": "Tartan skirt"
+   },
+   {
+    "id": "shoes-19",
+    "cat": "shoes",
+    "name": "Red bow shoes"
+   },
+   {
+    "id": "headband-20",
+    "cat": "headband",
+    "name": "Heart sunglasses"
+   },
+   {
+    "id": "top-20",
+    "cat": "top",
+    "name": "Unicorn hoodie"
+   },
+   {
+    "id": "bottoms-20",
+    "cat": "bottoms",
+    "name": "Sparkly leggings"
+   },
+   {
+    "id": "shoes-20",
+    "cat": "shoes",
+    "name": "Pink sparkly trainers"
+   },
+   {
+    "id": "headband-21",
+    "cat": "headband",
+    "name": "Ballet headband"
+   },
+   {
+    "id": "top-21",
+    "cat": "top",
+    "name": "Ballet leotard"
+   },
+   {
+    "id": "bottoms-21",
+    "cat": "bottoms",
+    "name": "Ballet tutu"
+   },
+   {
+    "id": "shoes-21",
+    "cat": "shoes",
+    "name": "Ballet shoes"
+   },
+   {
+    "id": "hat-22",
+    "cat": "hat",
+    "name": "Floppy sun hat"
+   },
+   {
+    "id": "top-22",
+    "cat": "top",
+    "name": "Strawberry dress"
+   },
+   {
+    "id": "bottoms-22",
+    "cat": "bottoms",
+    "name": "Strawberry skirt"
+   },
+   {
+    "id": "shoes-22",
+    "cat": "shoes",
+    "name": "Jelly sandals"
+   },
+   {
     "id": "extra-wings",
     "cat": "extra",
     "name": "Fairy wings",
@@ -308,6 +548,46 @@
     "id": "suit-4",
     "cat": "suit",
     "name": "Dino bodysuit"
+   },
+   {
+    "id": "head-5",
+    "cat": "head",
+    "name": "Blue cap"
+   },
+   {
+    "id": "suit-5",
+    "cat": "suit",
+    "name": "Car bodysuit"
+   },
+   {
+    "id": "head-6",
+    "cat": "head",
+    "name": "Bear hat"
+   },
+   {
+    "id": "suit-6",
+    "cat": "suit",
+    "name": "Bear bodysuit"
+   },
+   {
+    "id": "head-7",
+    "cat": "head",
+    "name": "Flower headband"
+   },
+   {
+    "id": "suit-7",
+    "cat": "suit",
+    "name": "Tutu bodysuit"
+   },
+   {
+    "id": "head-8",
+    "cat": "head",
+    "name": "Bunny ears"
+   },
+   {
+    "id": "suit-8",
+    "cat": "suit",
+    "name": "Bunny bodysuit"
    },
    {
     "id": "dummy-pink",

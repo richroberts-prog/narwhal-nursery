@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { ACTS, MAX_CHILDREN, PERSONALITIES, Personality, allowed, favourite } from '../src/game/catalog';
-import { HAIR, ITEM, ITEMS, NEEDED, SLOTS, STARTER, kindOf } from '../src/game/looks';
+import { ACTS, BOY_NAMES, GIRL_NAMES, MAX_CHILDREN, PERSONALITIES, Personality, allowed, favourite } from '../src/game/catalog';
+import { HAIR, ITEM, ITEMS, NEEDED, SLOTS, STARTER, fits, kindOf } from '../src/game/looks';
 import { CLOSE, Day, METERS, METER_OF, OPEN, SPEED, clock, newDay } from '../src/game/day';
 import { KEY, load, save, wipe } from '../src/game/save';
 import { heartsLine, hello, tip } from '../src/game/talk';
-import { GROWN_UP, PARENTS, World, earnsReward, familyTones, haveChild, matchFamilies, newWorld, nextDay, nursery, ownChild, rewardChoices, takeReward } from '../src/game/world';
+import { Child, GROWN_UP, PARENTS, World, earnsReward, familyTones, haveChild, matchFamilies, newWorld, nextDay, nursery, ownChild, rewardChoices, takeReward } from '../src/game/world';
 
 function seeded(seed: number) {
   return () => {
@@ -35,7 +35,7 @@ describe('personalities', () => {
       const fav = favourite(p, age);
       expect(allowed(age)).toContain(fav);
       expect(PERSONALITIES[p].likes).toContain(fav);
-      expect(tip({ id: 1, name: 'Max', age, pers: p, fam: 1, skin: 0, hair: '', hairColor: '', outfit: {} })).toContain('Max');
+      expect(tip({ id: 1, name: 'Max', age, pers: p, fam: 1, sex: 'girl', skin: 0, hair: '', hairColor: '', outfit: {} })).toContain('Max');
     }
   });
 });
@@ -119,6 +119,35 @@ describe('families look like families', () => {
     matchFamilies(w, seeded(41));
     expect(Math.abs(tone(f.mum) - tone(f.dad))).toBeLessThanOrEqual(1);
     for (const id of f.kids) expect(familyTones(f.mum, f.dad)).toContain(w.children.find((c) => c.id === id)!.skin);
+  });
+});
+
+describe('boys and girls', () => {
+  it('every child is a boy or a girl, with a name and clothes to match', () => {
+    const rng = seeded(50);
+    const w = newWorld(rng);
+    for (let i = 0; i < 20; i++) nextDay(w, rng);
+    for (const id of ITEMS.map((i) => i.id)) if (!w.unlocked.includes(id)) w.unlocked.push(id);
+    const kids = w.children;
+    expect(kids.some((c) => c.sex === 'boy') && kids.some((c) => c.sex === 'girl')).toBe(true);
+    for (const c of kids) {
+      expect((c.sex === 'boy' ? BOY_NAMES : GIRL_NAMES)).toContain(c.name);
+      for (const id of Object.values(c.outfit)) if (id) expect(fits(ITEM[id], c.sex)).toBe(true);
+    }
+  });
+
+  it('there are plenty of clothes for each, and an old save gets boys and girls from their names', () => {
+    for (const sex of ['boy', 'girl'] as const) for (const slot of ['head', 'top', 'bottoms', 'shoes'] as const) {
+      expect(ITEMS.filter((i) => i.kind === 'kid' && i.slot === slot && fits(i, sex)).length).toBeGreaterThanOrEqual(8);
+    }
+    expect(ITEMS.filter((i) => i.for === 'boy').length).toBeGreaterThan(15);
+    expect(ITEMS.filter((i) => i.for === 'girl').length).toBeGreaterThan(15);
+    const w = newWorld(seeded(51));
+    const c = w.children[0] as Partial<Child>;
+    c.name = 'Archie';
+    delete c.sex;
+    matchFamilies(w);
+    expect(w.children[0].sex).toBe('boy');
   });
 });
 
@@ -338,7 +367,7 @@ describe('rewards', () => {
 });
 
 describe("Isabelle's own child", () => {
-  const baby = { name: 'Luna', age: 0, pers: 'sleepy' as const, skin: 2, hair: 'wisps', hairColor: 'brown', outfit: { suit: 'baby:suit-1' } };
+  const baby = { name: 'Luna', age: 0, pers: 'sleepy' as const, sex: 'girl' as const, skin: 2, hair: 'wisps', hairColor: 'brown', outfit: { suit: 'baby:suit-1' } };
 
   it('is here all day, needs no pick-up, and the day still ends', () => {
     const w = newWorld(seeded(30));

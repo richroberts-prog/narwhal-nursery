@@ -2,7 +2,7 @@
 import './style.css';
 import { ACTS, Act, FURNITURE, Floor, HELPERS, HelperId, PERSONALITIES, Personality, favourite } from './game/catalog';
 import { CLOSE, Day, DayKid, Event, MAX_HEARTS, METERS, METER_INFO, SPEED, WANT, Wish, clock, newDay } from './game/day';
-import { HAIR, HAIR_COLOURS, ITEM, Kind, Look, NEEDED, SKIN_TONES, SLOTS, SLOT_LABEL, Slot, itemsFor, kindOf, randomLook, regrow } from './game/looks';
+import { HAIR, HAIR_COLOURS, ITEM, Kind, Look, NEEDED, SKIN_TONES, SLOTS, SLOT_LABEL, Sex, Slot, fits, itemsFor, kindOf, randomLook, regrow } from './game/looks';
 import { load, save, wipe } from './game/save';
 import { checkTip, didLabel, heartsLine, hello, homeTalk, reaction, smallTalk, tip, tipAnswer, tipMore, yesterday } from './game/talk';
 import { Child, Family, GROWN_UP, NewChild, OWN, Reward, World, earnsReward, familyName, haveChild, matchFamilies, newWorld, nextDay, ownChild, ownIsHelper, rewardChoices, takeReward, unlockSome } from './game/world';
@@ -170,7 +170,9 @@ function homeSpot(k: DayKid) {
 function makeRoom(k: DayKid) {
   const others = day.present().filter((o) => o !== k && o.floor === k.floor && o.x && !o.at.startsWith('bed:'));
   const x0 = k.x;
-  for (let i = 1; i <= 8 && others.some((o) => Math.abs(o.x - k.x) < 60 && Math.abs(o.y - k.y) < 40); i++) {
+  // Too close: side by side, or one just in front of the other (a child in front covers whoever is behind).
+  const near = (o: DayKid) => Math.abs(o.x - k.x) < 60 && Math.abs(o.y - k.y) < 150;
+  for (let i = 1; i <= 10 && others.some(near); i++) {
     k.x = Math.max(70, Math.min(1150, x0 + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 62));
   }
 }
@@ -624,6 +626,7 @@ function openWardrobe(start?: number) {
   busy = true;
   let who: number | 'me' = start ?? 'me';
   let tab: Tab = 'hair';
+  let everything = false;
   const lookOf = (): Look => (who === 'me' ? w.isabelle : w.children.find((c) => c.id === who)!);
   const ageOf = () => (who === 'me' ? ('adult' as const) : (lookOf() as Child).age);
 
@@ -640,7 +643,9 @@ function openWardrobe(start?: number) {
     } else {
       const slot = tab;
       const none = NEEDED.includes(slot) ? '' : `<button class="item ${!look.outfit[slot] ? 'on' : ''}" data-item="" aria-label="None">${mini({ ...look, outfit: { ...look.outfit, [slot]: undefined } })}<span>None</span></button>`;
-      tiles = none + itemsFor(kind, slot).map((it) => w.unlocked.includes(it.id)
+      // A child sees clothes for them (boy or girl) and for anyone; "All clothes" shows the rest too.
+      const sex: Sex = child?.sex ?? 'girl';
+      tiles = none + itemsFor(kind, slot).filter((it) => everything || fits(it, sex)).map((it) => w.unlocked.includes(it.id)
         ? `<button class="item ${look.outfit[slot] === it.id ? 'on' : ''}" data-item="${it.id}" aria-label="${esc(it.name)}">${mini({ ...look, outfit: { ...look.outfit, [slot]: it.id } })}<span>${esc(it.name)}</span></button>`
         : `<button class="item locked" data-locked="1" aria-label="Locked">🔒<span>Coming soon</span></button>`).join('');
     }
@@ -655,14 +660,16 @@ function openWardrobe(start?: number) {
         ${child ? `<input class="name" maxlength="12" value="${esc(child.name)}" aria-label="Name"><small>${child.age === 0 ? 'Newborn' : `Age ${child.age}`} · ${PERSONALITIES[child.pers].e} ${PERSONALITIES[child.pers].label}</small>` : '<b class="name-fixed">Isabelle</b>'}
       </div>
       <div class="shop">
-        <div class="tabs"><button class="tab ${tab === 'hair' ? 'on' : ''}" data-tab="hair">Hair</button>${SLOTS[kind].map((s) => `<button class="tab ${s === tab ? 'on' : ''}" data-tab="${s}">${SLOT_LABEL[s]}</button>`).join('')}</div>
+        <div class="tabs"><button class="tab ${tab === 'hair' ? 'on' : ''}" data-tab="hair">Hair</button>${SLOTS[kind].map((s) => `<button class="tab ${s === tab ? 'on' : ''}" data-tab="${s}">${SLOT_LABEL[s]}</button>`).join('')}
+          ${child && tab !== 'hair' ? `<button class="tab all ${everything ? 'on' : ''}">${everything ? '✨ All clothes' : child.sex === 'boy' ? '👦 Boy clothes' : '👧 Girl clothes'}</button>` : ''}</div>
         ${tab === 'hair' ? `<div class="colours">${Object.entries(HAIR_COLOURS).map(([n, c]) => `<button class="sw ${look.hairColor === n ? 'on' : ''}" data-colour="${n}" style="background:${c}" aria-label="${n} hair colour"></button>`).join('')}</div>` : ''}
         <div class="items">${tiles}</div>
         <button class="done">Done ✓</button>
       </div></div>`;
     modal.querySelector<HTMLElement>('.who.on')?.scrollIntoView({ block: 'nearest' });
     modal.querySelectorAll<HTMLElement>('.who').forEach((b) => b.addEventListener('click', () => { sfx.pop(); who = b.dataset.who === 'me' ? 'me' : Number(b.dataset.who); draw(); }));
-    modal.querySelectorAll<HTMLElement>('.tab').forEach((b) => b.addEventListener('click', () => { sfx.pop(); tab = b.dataset.tab as Tab; draw(); }));
+    modal.querySelectorAll<HTMLElement>('.tab[data-tab]').forEach((b) => b.addEventListener('click', () => { sfx.pop(); tab = b.dataset.tab as Tab; draw(); }));
+    modal.querySelector('.tab.all')?.addEventListener('click', () => { sfx.pop(); everything = !everything; draw(); });
     modal.querySelectorAll<HTMLElement>('[data-colour]').forEach((b) => b.addEventListener('click', () => { sfx.sparkle(); lookOf().hairColor = b.dataset.colour!; persist(); draw(); }));
     modal.querySelectorAll<HTMLElement>('.item').forEach((b) => b.addEventListener('click', () => {
       if (b.dataset.locked) { sfx.nope(); return; }
@@ -697,7 +704,7 @@ app.querySelector('.baby')!.addEventListener('click', () => { if (!busy) { sfx.p
 
 function babyMaker() {
   busy = true;
-  const draft: NewChild = { ...randomLook(Math.random, 'baby', w.unlocked, w.isabelle.skin), hairColor: w.isabelle.hairColor, name: '', age: 0, pers: 'creative' };
+  const draft: NewChild = { ...randomLook(Math.random, 'baby', w.unlocked, w.isabelle.skin), hairColor: w.isabelle.hairColor, name: '', age: 0, pers: 'creative', sex: 'girl' };
   const kind = (): Kind => kindOf(draft.age);
   const draw = () => {
     modal.hidden = false;
@@ -706,6 +713,7 @@ function babyMaker() {
       <div class="opts">
         <h2>Your own child 💖</h2>
         <input class="name" maxlength="12" placeholder="Name" value="${esc(draft.name)}" aria-label="Name">
+        <div class="row"><span>Child</span>${(['girl', 'boy'] as Sex[]).map((x) => `<button class="pill ${draft.sex === x ? 'on' : ''}" data-k="sex" data-v="${x}">${x === 'girl' ? '👧 Girl' : '👦 Boy'}</button>`).join('')}</div>
         <div class="row"><span>Age</span>${[0, 1, 2, 3, 4].map((a) => `<button class="pill ${draft.age === a ? 'on' : ''}" data-k="age" data-v="${a}">${a === 0 ? 'Newborn' : a}</button>`).join('')}</div>
         <div class="row"><span>Skin</span>${SKIN_TONES.map((c, i) => `<button class="sw ${draft.skin === i ? 'on' : ''}" data-k="skin" data-v="${i}" style="background:${c}" aria-label="skin ${i + 1}"></button>`).join('')}</div>
         <div class="row"><span>Hair</span>${Object.entries(HAIR_COLOURS).map(([n, c]) => `<button class="sw ${draft.hairColor === n ? 'on' : ''}" data-k="hairColor" data-v="${n}" style="background:${c}" aria-label="${n} hair"></button>`).join('')}</div>
@@ -722,7 +730,10 @@ function babyMaker() {
       if (k === 'age') {
         const before = kind();
         draft.age = Number(v);
-        Object.assign(draft, regrow(draft, before, kind(), w.unlocked, Math.random));
+        Object.assign(draft, regrow(draft, before, kind(), w.unlocked, Math.random, draft.sex));
+      } else if (k === 'sex') {
+        draft.sex = v as Sex;
+        Object.assign(draft, { ...randomLook(Math.random, kind(), w.unlocked, draft.skin, draft.sex), hairColor: draft.hairColor });
       } else if (k === 'skin') draft.skin = Number(v);
       else if (k === 'pers') draft.pers = v as Personality;
       else (draft as unknown as Record<string, string>)[k] = v;

@@ -1,6 +1,6 @@
 // The nursery that lasts between days: families, children, clothes, helpers, furniture, and how it grows.
-import { FURNITURE, FurnId, HELPERS, HelperId, MAX_CHILDREN, MAX_HELPERS, NAMES, PERSONALITIES, Personality } from './catalog';
-import { ITEM, ITEMS, Item, Look, STARTER, kindOf, randomLook, regrow } from './looks';
+import { BOY_NAMES, FURNITURE, FurnId, GIRL_NAMES, HELPERS, HelperId, MAX_CHILDREN, MAX_HELPERS, PERSONALITIES, Personality } from './catalog';
+import { ITEM, ITEMS, Item, Look, STARTER, Sex, kindOf, randomLook, regrow } from './looks';
 
 export type Rng = () => number;
 export const pick = <T>(rng: Rng, a: readonly T[]): T => a[Math.floor(rng() * a.length)];
@@ -13,7 +13,7 @@ export function shuffle<T>(rng: Rng, a: readonly T[]): T[] {
   return b;
 }
 
-export type Child = Look & { id: number; name: string; age: number; pers: Personality; fam: number };
+export type Child = Look & { id: number; name: string; age: number; pers: Personality; fam: number; sex: Sex };
 /** Painted grown-ups (public/art/parents) and the skin tone (0-5) their children are painted with. */
 export const PARENTS = {
   mums: { 'mum-1': 0, 'mum-2': 4, 'gran-1': 2, 'mum-3': 2, 'mum-4': 0, 'mum-5': 3 },
@@ -31,8 +31,10 @@ export function familyTones(mum: string, dad: string): number[] {
   return Array.from({ length: Math.abs(a - b) + 1 }, (_, i) => Math.min(a, b) + i);
 }
 
-/** A saved nursery from before families were matched: give each mum a dad who looks like her, and each child a tone between them. */
+/** Put an older saved nursery right: every child a boy or a girl (from their name), each mum a dad who looks like her,
+ *  and each child a skin tone between their parents'. */
 export function matchFamilies(w: World, rng: Rng = Math.random) {
+  for (const c of w.children) c.sex ??= BOY_NAMES.includes(c.name) ? 'boy' : 'girl';
   for (const f of w.families) {
     if (!dadsFor(f.mum as Mum).includes(f.dad as Dad)) f.dad = pick(rng, dadsFor(f.mum as Mum));
     const tones = familyTones(f.mum, f.dad);
@@ -58,7 +60,7 @@ export const nursery = (w: World) => w.children.filter((c) => c.fam !== OWN);
 export const ownChild = (w: World) => w.children.find((c) => c.id === w.own) ?? null;
 export const ownIsHelper = (w: World) => (ownChild(w)?.age ?? 0) >= GROWN_UP;
 
-export type NewChild = Look & { name: string; age: number; pers: Personality };
+export type NewChild = Look & { name: string; age: number; pers: Personality; sex: Sex };
 export function haveChild(w: World, c: NewChild): Child {
   if (ownChild(w)) return ownChild(w)!;
   const child: Child = { ...c, id: w.nextId++, fam: OWN };
@@ -85,14 +87,15 @@ export function addFamily(w: World, rng: Rng, size = 1 + Math.floor(rng() * 3)):
   const dad = pick(rng, dadsFor(mum));
   const fam: Family = { id: w.nextId++, kids: [], mum, dad, visits: 0 };
   const used = new Set(w.children.map((c) => c.name));
-  const names = shuffle(rng, NAMES.filter((n) => !used.has(n)));
+  const free = { boy: shuffle(rng, BOY_NAMES.filter((n) => !used.has(n))), girl: shuffle(rng, GIRL_NAMES.filter((n) => !used.has(n))) };
   const ages = shuffle(rng, [0, 1, 2, 3, 4]);
   for (let i = 0; i < Math.min(size, room); i++) {
     const age = ages[i];
     const skin = pick(rng, familyTones(mum, dad));
+    const sex: Sex = rng() < 0.5 ? 'boy' : 'girl';
     const child: Child = {
-      ...randomLook(rng, kindOf(age), w.unlocked, skin),
-      id: w.nextId++, name: names[i] ?? `Baby ${w.nextId}`, age, fam: fam.id,
+      ...randomLook(rng, kindOf(age), w.unlocked, skin, sex),
+      id: w.nextId++, name: free[sex].shift() ?? `Baby ${w.nextId}`, age, fam: fam.id, sex,
       pers: pick(rng, Object.keys(PERSONALITIES) as Personality[]),
     };
     w.children.push(child);
@@ -121,7 +124,7 @@ export function nextDay(w: World, rng: Rng = Math.random) {
   if (own && own.age < GROWN_UP) {
     const before = kindOf(own.age);
     own.age++;
-    Object.assign(own, regrow(own, before, kindOf(own.age), w.unlocked, rng));
+    Object.assign(own, regrow(own, before, kindOf(own.age), w.unlocked, rng, own.sex));
     birthday = own;
   }
   return { clothes, family, birthday };

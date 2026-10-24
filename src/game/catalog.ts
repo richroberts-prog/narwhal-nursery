@@ -63,8 +63,11 @@ export const FURNITURE: Record<FurnId, { name: string; e: string; floor: Floor; 
 
 export const MAX_CHILDREN = 22;
 
-export const NAMES = [
-  'Max', 'Lily', 'Oscar', 'Ava', 'Leo', 'Rosie', 'Alfie', 'Isla', 'Theo', 'Poppy', 'Noah', 'Ella', 'Freddie', 'Mia', 'Arlo', 'Grace',
-  'Jack', 'Daisy', 'Harry', 'Evie', 'Teddy', 'Ruby', 'George', 'Willow', 'Finn', 'Maisie', 'Archie', 'Florence', 'Sam', 'Ivy',
-  'Louie', 'Olivia', 'Albie', 'Sophie', 'Ezra', 'Millie', 'Reggie', 'Bella', 'Zak', 'Hana', 'Kai', 'Amara', 'Ollie', 'Nia',
+export const BOY_NAMES = [
+  'Max', 'Oscar', 'Leo', 'Alfie', 'Theo', 'Noah', 'Freddie', 'Arlo', 'Jack', 'Harry', 'Teddy', 'George', 'Finn', 'Archie', 'Sam',
+  'Louie', 'Albie', 'Ezra', 'Reggie', 'Zak', 'Kai', 'Ollie', 'Hugo', 'Ravi',
+];
+export const GIRL_NAMES = [
+  'Lily', 'Ava', 'Rosie', 'Isla', 'Poppy', 'Ella', 'Mia', 'Grace', 'Daisy', 'Evie', 'Ruby', 'Willow', 'Maisie', 'Florence', 'Ivy',
+  'Olivia', 'Sophie', 'Millie', 'Bella', 'Hana', 'Amara', 'Nia', 'Luna', 'Zara',
 ];

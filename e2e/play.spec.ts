@@ -167,6 +167,13 @@ test('wardrobe: rename a child (the box takes typing), dress them, and it sticks
   await hat.tap();
   await expect(page.locator(`.item[aria-label="${name2}"]`)).toHaveClass(/on/);
   await shot(page, '06-wardrobe');
+  // Their own clothes first (boy or girl, plus anyone's); "All clothes" shows the rest too.
+  await page.locator('.tab[data-tab="head"]').tap();
+  const mine = await page.locator('.items .item').count();
+  await expect(page.locator('.tab.all')).toHaveText(/Boy clothes|Girl clothes/);
+  await page.locator('.tab.all').tap();
+  await expect(page.locator('.tab.all')).toHaveText('✨ All clothes');
+  expect(await page.locator('.items .item').count()).toBeGreaterThan(mine);
   await page.locator('.done').tap();
   await expect(page.locator('.p.kid .tag', { hasText: 'Sparkle' })).toHaveCount(1);
   await page.reload();
