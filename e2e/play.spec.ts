@@ -199,7 +199,8 @@ test('hairstyles and hair colours change in the wardrobe, for Isabelle too', asy
   await expect(page.locator(`.preview .doll img[src*="hair-${style}-"]`)).toHaveCount(1);
   await shot(page, '06-hair');
   await page.locator('.done').tap();
-  await expect(page.locator('.p.isabelle img[src*="hair-bun-ginger"]')).toHaveCount(1);
+  // The room draws people in 3D; the tap layer carries the look it's drawing.
+  await expect(page.locator('.p.isabelle[data-art*="|bun|ginger|"]')).toHaveCount(1);
 });
 
 test('three wishes a day, shown at the top', async ({ page }) => {

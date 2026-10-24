@@ -217,4 +217,4 @@ img { -webkit-user-drag: none; }
 
 .p.carried .tag, .p.carried .bubble { visibility: hidden; }
 /* A chatting child's words, in a speech bubble. */
-.p .bubble.words { width: auto; min-width: calc(54px * var(--b)); max-width: 230px; height: auto; padding: 6px 12px; border-radius: 18px; font-size: calc(17px * var(--b)); font-weight: 800; line-height: 1.15; white-space: normal; text-align: center; top: auto; bottom: 100%; margin-bottom: 8px; z-index: 2; }
+.p .bubble.words { pointer-events: none; width: auto; min-width: calc(54px * var(--b)); max-width: 230px; height: auto; padding: 6px 12px; border-radius: 18px; font-size: calc(17px * var(--b)); font-weight: 800; line-height: 1.15; white-space: normal; text-align: center; top: auto; bottom: 100%; margin-bottom: 8px; z-index: 2; }

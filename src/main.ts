@@ -179,15 +179,41 @@ const crowd = (floor: Floor) => Math.min(1, Math.sqrt(16 / Math.max(1, standing(
  * (over 22 on it) stands in staggered rows: the next row along is close, but never straight in front of anyone. */
 const tooClose = (a: DayKid, b: DayKid, c: number, h: number) => {
   const dx = Math.abs(a.x - b.x), dy = Math.abs(a.y - b.y) / h;
-  return c < 0.85 ? (dx < 60 * c && dy < 90 * c) || (dx < 25 * c && dy < 150 * c) : dx < 60 * c && dy < 150 * c;
+  return c < 1 ? (dx < 60 * c && dy < 90 * c) || (dx < 25 * c && dy < 150 * c) : dx < 60 * c && dy < 150 * c;
 };
 /** How tall the children on a floor are: babies in the baby room sit, so they need less room in front. */
 const tall = (floor: Floor) => (floor === 'up' ? 0.6 : 1);
 
-/** Whatever moved them, nobody stays standing on top of someone else. */
+/** Never behind a piece of furniture that's drawn in front (desk, chest, cots). */
+const hiddenAt = (f: Floor, x: number, y: number) => FRONTS[f].some((fr) => x > fr.x - 25 && x < fr.x + fr.w + 25 && y > fr.y + 30 && y < fr.z);
+/** A busy room's standing places: staggered rows from the front, so nobody is straight behind anyone. */
+function gridSpots(f: Floor, c: number, h: number): [number, number][] {
+  const spots: [number, number][] = [];
+  for (let r = 0, y = 760; y >= 560; r++, y -= 100 * c * h) {
+    for (let x = insideFrom(f, y) + (r % 2) * 31 * c; x <= X_RANGE[f][1]; x += 62 * c) if (!hiddenAt(f, x, y)) spots.push([x, y]);
+  }
+  return spots;
+}
+
+/** Whatever moved them, nobody stays standing on top of someone else. A busy room (over 16) puts every standing
+ * child on a grid spot: whoever is already on one keeps it, the rest take the nearest free one. */
 function spreadOut() {
   for (const f of ['down', 'up'] as Floor[]) {
     const c = crowd(f), h = tall(f);
+    if (c < 1) {
+      const spots = gridSpots(f, c, h), taken = new Set<number>(), rest: DayKid[] = [];
+      for (const k of standing(f)) {
+        const i = spots.findIndex(([x, y]) => Math.abs(k.x - x) < 1 && Math.abs(k.y - y) < 1);
+        if (i >= 0 && !taken.has(i)) taken.add(i); else rest.push(k);
+      }
+      for (const k of rest) {
+        let best = -1, bd = Infinity;
+        spots.forEach(([x, y], i) => { const d = Math.hypot(x - k.x, (y - k.y) * 2); if (!taken.has(i) && d < bd) { bd = d; best = i; } });
+        if (best < 0) break;
+        taken.add(best); [k.x, k.y] = spots[best];
+      }
+      continue;
+    }
     const ok: DayKid[] = [];
     for (const k of standing(f)) {
       if (ok.some((o) => tooClose(o, k, c, h))) makeRoom(k);
@@ -205,15 +231,12 @@ function makeRoom(k: DayKid) {
   const c = crowd(k.floor), h = tall(k.floor);
   const x0 = k.x, y0 = k.y;
   const near = (o: DayKid) => tooClose(o, k, c, h);
-  // Never behind a piece of furniture that's drawn in front (desk, chest, cots).
-  const hidden = () => FRONTS[k.floor].some((f) => k.x > f.x - 25 && k.x < f.x + f.w + 25 && k.y > f.y + 30 && k.y < f.z);
+  const hidden = () => hiddenAt(k.floor, k.x, k.y);
   // Places to try, nearest first: a quiet floor steps out sideways (and a row forwards or back); a busy floor fills
   // fixed staggered rows from the front, so no space is wasted between rows that don't line up.
   const spots: [number, number][] = [];
-  if (c < 0.85) {
-    for (let r = 0, y = 760; y >= 560; r++, y -= 100 * c * h) {
-      for (let x = insideFrom(k.floor, y) + (r % 2) * 31 * c; x <= X_RANGE[k.floor][1]; x += 62 * c) spots.push([x, y]);
-    }
+  if (c < 1) {
+    spots.push(...gridSpots(k.floor, c, h));
     spots.sort((a, b) => Math.hypot(a[0] - x0, (a[1] - y0) * 2) - Math.hypot(b[0] - x0, (b[1] - y0) * 2));
   } else {
     for (const dy of [0, -100, 100, -200, 200]) {

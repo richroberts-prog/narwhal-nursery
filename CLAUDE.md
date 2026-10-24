@@ -8,8 +8,15 @@ browser. Agreed design: `docs/design.md`.
 
 - `npm test`: unit tests (rules, growth, rewards, own child, saving). `npm run typecheck`.
 - `npx playwright test`: plays by touch at iPad and Fire tablet sizes (about 30 min: the 3D draws in software). `SHOTS=shots` saves screenshots.
-- `npm run check`: the hot-fix check (types, unit tests, one day played on the Fire HD10), a few minutes. Small fixes need
-  only this; big changes run the full suite.
+- `npm run check`: the hot-fix check (types, unit tests, day 1 and a full day 10 played on the Fire HD10), about 2 min.
+
+## Hot fixes
+
+Small fix (words, a number, a position): branch from main, make it, `npm run check`, screenshot the change, push the
+branch, and tell Rich it's ready. When Rich says merge: `git switch main && git merge --ff-only <branch> && git push`;
+Pages deploys in about 30 s (`gh run list --limit 1`); open https://richroberts-prog.github.io/narwhal-nursery/ to
+confirm. Big changes (layout, rules, 3D) run the full `npx playwright test` before asking. Saves survive any deploy
+unless `World.v` changes.
 - `npm run dev`; `npm run build` to `dist/`. A push to main deploys to Pages.
 - `npm run single`: one self-contained `dist/narwhal-nursery.html` to send as a file.
 
