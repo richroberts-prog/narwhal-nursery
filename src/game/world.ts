@@ -79,10 +79,10 @@ export function newWorld(rng: Rng = Math.random): World {
   return w;
 }
 
-/** How many children the nursery has by this day: 3 on day 1, rising evenly to all 50 on day 10. */
+/** How many children the nursery has by this day: 3 on day 1, rising evenly to all 22 on day 10. */
 export const childrenBy = (day: number) => Math.min(MAX_CHILDREN, Math.round(3 + ((MAX_CHILDREN - 3) * (day - 1)) / (FULL_DAY - 1)));
 
-/** A new family of 1 to 3 children, all different ages, never past `limit` children (the 50 children limit). */
+/** A new family of 1 to 3 children, all different ages, never past `limit` children (the 22 children limit). */
 export function addFamily(w: World, rng: Rng, size = 1 + Math.floor(rng() * 3), limit = MAX_CHILDREN): Family | null {
   const room = Math.min(limit, MAX_CHILDREN) - nursery(w).length;
   if (room <= 0) return null;
@@ -137,7 +137,7 @@ export function nextDay(w: World, rng: Rng = Math.random) {
 
 export type Reward = { kind: 'helper'; id: HelperId } | { kind: 'furniture'; id: FurnId } | { kind: 'clothes'; ids: string[] };
 
-/** Rewards start once all 50 children come; a good day is three in four children on 4 hearts or more. */
+/** Rewards start once all 22 children come; a good day is three in four children on 4 hearts or more. */
 export function earnsReward(w: World, hearts: number[]): boolean {
   if (nursery(w).length < MAX_CHILDREN || !hearts.length) return false;
   return hearts.filter((h) => h >= 4).length / hearts.length >= 0.75;

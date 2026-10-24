@@ -5,9 +5,10 @@ const fire = { browserName: 'chromium' as const, hasTouch: true, isMobile: true,
 export default defineConfig({
   testDir: 'e2e',
   timeout: 300_000,
-  workers: 4,
+  // Two at a time: the 3D is drawn in software (Mesa), and four at once overloads the server.
+  workers: 2,
   // Less motion so taps don't wait for bobbing children to hold still.
-  use: { baseURL: 'http://127.0.0.1:4212/', screenshot: 'only-on-failure', contextOptions: { reducedMotion: 'reduce' } },
+  use: { baseURL: 'http://127.0.0.1:4212/', screenshot: 'only-on-failure', contextOptions: { reducedMotion: 'reduce' }, launchOptions: { args: ['--use-gl=angle', '--use-angle=gl-egl', '--ignore-gpu-blocklist'] } },
   projects: [
     { name: 'ipad', use: { ...devices['iPad Pro 11 landscape'], browserName: 'chromium' } },
     { name: 'ipad-portrait', use: { ...devices['iPad Pro 11'], browserName: 'chromium' } },

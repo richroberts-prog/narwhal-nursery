@@ -73,7 +73,7 @@ export const PLAY_AREA: Record<Floor, { x: [number, number]; y: [number, number]
 };
 
 /** Parents wait outside on the pavement, front first by the door; they walk up from the street on the left. */
-export const QUEUE: [number, number][] = [[195, 640], [215, 590], [110, 690], [150, 555]];
+export const QUEUE: [number, number][] = [[195, 640], [120, 668], [45, 700], [-30, 735]];
 export const DOOR: [number, number] = [-150, 700];
 /** The glass front wall runs from the back to the front through this room pixel; the door is in it. */
 export const GLASS: [number, number] = [250, 700];

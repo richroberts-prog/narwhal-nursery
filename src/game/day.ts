@@ -331,7 +331,7 @@ export class Day {
     if (front !== undefined) {
       const f = this.fam(front);
       const who = `${familyName(this.w, this.w.families.find((x) => x.id === front)!)}'s ${f.parent}`;
-      return f.state === 'drop' ? `${who} is at the desk! Tap them to say hello.` : `${who} is here for pick-up! Tap them at the desk.`;
+      return f.state === 'drop' ? `${who} is at the door! Tap them to say hello.` : `${who} is here for pick-up! Tap them outside.`;
     }
     const k = this.present().filter((k) => this.need(k)).sort((a, b) => Math.max(...METERS.map((m) => b.m[m])) - Math.max(...METERS.map((m) => a.m[m])))[0];
     if (k) {

@@ -49,7 +49,7 @@ describe('the nursery grows', () => {
     expect(STARTER.length).toBeGreaterThan(10);
   });
 
-  it('grows evenly from 3 children on day 1 to all 50 on day 10 in families of 1-3, siblings of different ages 0-4', () => {
+  it('grows evenly from 3 children on day 1 to all 22 on day 10 in families of 1-3, siblings of different ages 0-4', () => {
     const rng = seeded(2);
     const w = newWorld(rng);
     const counts = [w.children.length];
@@ -59,8 +59,8 @@ describe('the nursery grows', () => {
       else expect(families.length).toBeGreaterThanOrEqual(1);
       if (w.day <= FULL_DAY) counts.push(w.children.length);
     }
-    expect(counts).toEqual([3, 8, 13, 19, 24, 29, 34, 40, 45, 50]);
-    expect(MAX_CHILDREN).toBe(50);
+    expect(counts).toEqual([3, 5, 7, 9, 11, 14, 16, 18, 20, 22]);
+    expect(MAX_CHILDREN).toBe(22);
     expect(w.children).toHaveLength(MAX_CHILDREN);
     for (const f of w.families) {
       expect(f.kids.length).toBeLessThanOrEqual(3);
@@ -273,7 +273,7 @@ describe('a day', () => {
     d.start();
     expect(d.s.queue).toHaveLength(2);
     expect(d.canSkip()).toBe(false);
-    expect(d.hint()).toMatch(/at the desk/);
+    expect(d.hint()).toMatch(/at the door/);
     for (const f of w.families) d.dropOff(f.id);
     d.skip();
     expect(d.s.t).toBe(OPEN + 30);
@@ -338,12 +338,12 @@ describe('wishes', () => {
 });
 
 describe('rewards', () => {
-  it('only come with all 50 children and a good day', () => {
+  it('only come with all the children and a good day', () => {
     const rng = seeded(15);
     const w = newWorld(rng);
     expect(earnsReward(w, [5, 5, 5])).toBe(false);
     for (let i = 0; i < 40; i++) nextDay(w, rng);
-    expect(earnsReward(w, Array(50).fill(4))).toBe(true);
+    expect(earnsReward(w, Array(MAX_CHILDREN).fill(4))).toBe(true);
     expect(earnsReward(w, [...Array(37).fill(5), ...Array(13).fill(1)])).toBe(false);
   });
 
@@ -390,7 +390,7 @@ describe("Isabelle's own child", () => {
     expect(d.present().map((k) => k.id)).toContain(w.own);
   });
 
-  it("grows a year a day, doesn't count toward the 50, and at 16 helps with anything", () => {
+  it("grows a year a day, doesn't count toward the 22, and at 16 helps with anything", () => {
     const rng = seeded(32);
     const w = newWorld(rng);
     const c = haveChild(w, baby);
@@ -401,7 +401,7 @@ describe("Isabelle's own child", () => {
     expect(HAIR.adult).toContain(c.hair);
     expect(nursery(w)).toHaveLength(MAX_CHILDREN);
     expect(w.children).toHaveLength(MAX_CHILDREN + 1);
-    expect(earnsReward(w, Array(50).fill(5))).toBe(true);
+    expect(earnsReward(w, Array(MAX_CHILDREN).fill(5))).toBe(true);
     const d = new Day(w, newDay(w, rng), rng);
     expect(d.kid(c.id).here).toBe(false);
     d.start();

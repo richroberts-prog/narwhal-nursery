@@ -31,8 +31,8 @@
 - Emily: tap her for a hint.
 - Pick-up: parents queue outside the front door; one chat per family; you tap what each child did today. Parents don't mention outfits.
 - End of day: each child's hearts, then Next day.
-- Growth: day 1 has 3 children, then new families each day (1-3 children each), rising evenly to all 50 children on day 10. A busy floor draws its children smaller and stands them in staggered rows so everyone can still be tapped. New clothes (a hat, a headband, a dummy, or a top, bottoms, shoes) every day.
-- From 50 children the game keeps going; a good day (most children 4+ hearts) lets you pick 1 of 3 rewards:
+- Growth: day 1 has 3 children, then new families each day (1-3 children each), rising evenly to all 22 children on day 10 (50 was tried and was too many). A busy floor draws its children smaller and stands them in staggered rows so everyone can still be tapped. New clothes (a hat, a headband, a dummy, or a top, bottoms, shoes) every day.
+- From 22 children the game keeps going; a good day (most children 4+ hearts) lets you pick 1 of 3 rewards:
   a helper who does one job by themselves (up to 4), a toy or furniture for a floor, or new clothes.
 - Music and little sounds with a mute button. Nothing read aloud.
 

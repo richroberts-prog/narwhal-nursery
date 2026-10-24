@@ -7,7 +7,9 @@ browser. Agreed design: `docs/design.md`.
 ## Commands
 
 - `npm test`: unit tests (rules, growth, rewards, own child, saving). `npm run typecheck`.
-- `npx playwright test`: plays by touch at iPad and Fire tablet sizes. `SHOTS=shots` saves screenshots.
+- `npx playwright test`: plays by touch at iPad and Fire tablet sizes (about 30 min: the 3D draws in software). `SHOTS=shots` saves screenshots.
+- `npm run check`: the hot-fix check (types, unit tests, one day played on the Fire HD10), a few minutes. Small fixes need
+  only this; big changes run the full suite.
 - `npm run dev`; `npm run build` to `dist/`. A push to main deploys to Pages.
 - `npm run single`: one self-contained `dist/narwhal-nursery.html` to send as a file.
 

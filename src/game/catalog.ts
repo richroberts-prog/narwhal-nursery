@@ -61,7 +61,7 @@ export const FURNITURE: Record<FurnId, { name: string; e: string; floor: Floor; 
   horse: { name: 'Rocking horse', e: '🐴', floor: 'up', minAge: 1 },
 };
 
-export const MAX_CHILDREN = 50;
+export const MAX_CHILDREN = 22;
 /** The day the nursery is full. */
 export const FULL_DAY = 10;
 

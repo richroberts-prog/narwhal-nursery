@@ -1,4 +1,4 @@
-// Screens: start, the nursery (two painted floors), chats at the desk, the wardrobe, having a child, and the end of the day.
+// Screens: start, the nursery (one level in 3D, parents outside), chats with parents, the wardrobe, having a child, and the end of the day.
 import './style.css';
 import { ACTS, Act, FURNITURE, Floor, HELPERS, HelperId, PERSONALITIES, Personality, favourite } from './game/catalog';
 import { CLOSE, Day, DayKid, Event, MAX_HEARTS, METERS, METER_INFO, SPEED, WANT, Wish, clock, newDay } from './game/day';
@@ -172,7 +172,7 @@ function homeSpot(k: DayKid) {
 }
 
 const standing = (floor: Floor) => day.present().filter((o) => o.floor === floor && o.x && !o.at.startsWith('bed:') && !(day.asleep(o) && o.floorNap));
-/** A busy floor draws its children smaller so up to 50 still fit: full size up to 16 on a floor. */
+/** A busy room draws its children smaller so they all fit: full size up to 16 in a room. */
 const crowd = (floor: Floor) => Math.min(1, Math.sqrt(16 / Math.max(1, standing(floor).length)));
 
 /** Too close: side by side, or one just in front of the other (a child in front covers whoever is behind). A busy floor
@@ -248,7 +248,7 @@ function render() {
   app.querySelector('.skip')!.classList.toggle('off', !day.canSkip());
   room.style.setProperty('--dusk', String(Math.max(0, Math.min(1, (s.t - 900) / 120))));
   const waiting = s.queue.length;
-  app.querySelector('.desk-note')!.innerHTML = waiting ? `🔔 ${waiting} at the desk` : `👶 ${day.present().length} here`;
+  app.querySelector('.desk-note')!.innerHTML = waiting ? `🔔 ${waiting} waiting outside` : `👶 ${day.present().length} here`;
   room.querySelectorAll<HTMLElement>('.bg, .st').forEach((f) => f.classList.toggle('show', f.dataset.floor === view));
   drawWishes();
 
@@ -518,7 +518,7 @@ function handleEvents(events: Event[]) {
       sfx.ding();
       const f = day.fam(ev.fam);
       const who = `${familyName(w, famOf(ev.fam))}'s ${f.parent}`;
-      say('emily', ev.type === 'arrive' ? `Ding dong! ${who} is at the desk.` : `${who} is here for pick-up!`);
+      say('emily', ev.type === 'arrive' ? `Ding dong! ${who} is at the door.` : `${who} is here for pick-up!`);
       continue;
     }
     const k = day.kid(ev.kid);
@@ -576,7 +576,7 @@ function tapDesk(parent: boolean) {
 
 app.querySelector('.skip')!.addEventListener('click', () => {
   if (busy) return;
-  if (!day.canSkip()) { sfx.nope(); say('emily', day.s.t >= CLOSE ? "It's home time! Parents are at the desk." : 'Say hello at the desk first!'); return; }
+  if (!day.canSkip()) { sfx.nope(); say('emily', day.s.t >= CLOSE ? "It's home time! Parents are waiting outside." : 'Say hello to the parents outside first!'); return; }
   sfx.pop();
   handleEvents(day.skip());
   persist();
@@ -912,7 +912,7 @@ function begin(saved: ReturnType<typeof load>) {
   } else {
     w = newWorld();
     startDay();
-    say('emily', "Hi Isabelle! I'm Emily. Parents are at the desk. Tap them to say hello!");
+    say('emily', "Hi Isabelle! I'm Emily. Parents are waiting outside the door. Tap them to say hello!");
   }
   app.querySelector('.mute')!.textContent = w.muted ? '🔇' : '🔊';
 }

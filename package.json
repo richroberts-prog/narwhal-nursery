@@ -9,7 +9,8 @@
     "test": "vitest run",
     "typecheck": "tsc -p .",
     "e2e": "playwright test",
-    "single": "vite build && node scripts/single.mjs"
+    "single": "vite build && node scripts/single.mjs",
+    "check": "tsc -p . && vitest run && playwright test -g 'day 1:|day 10' --project=fire-hd10"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",

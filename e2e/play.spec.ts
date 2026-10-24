@@ -94,7 +94,7 @@ test('day 1: greet, care, the clock runs, pick up, next day, and it saves', asyn
   await page.locator('.play').tap();
   await shot(page, '02-room');
   await page.locator('.skip').tap();
-  await expect(page.locator('.say p')).toContainText('desk first');
+  await expect(page.locator('.say p')).toContainText('outside first');
   await serveDesk(page);
   await expect(page.locator('.p.kid')).toHaveCount(3);
 
@@ -222,7 +222,7 @@ test('start again asks first, then wipes', async ({ page }) => {
   await expect(page.locator('.p.parent')).toHaveCount(2);
 });
 
-/** A world on day 10, when all 50 children come. */
+/** A world on day 10, when all the children come. */
 function fullWorld() {
   const w = newWorld();
   while (w.children.length < MAX_CHILDREN) nextDay(w);
@@ -232,7 +232,7 @@ function fullWorld() {
 
 const seed = (page: Page, world: unknown, today: unknown) => page.addInitScript(([k, v]) => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem(k, v); sessionStorage.setItem('seeded', '1'); } }, [KEY, JSON.stringify({ world, today })]);
 
-test('day 10: all 50 children are in and every one can be tapped on both floors', async ({ page }) => {
+test('day 10: all the children are in and every one can be tapped in both rooms', async ({ page }) => {
   const w = fullWorld();
   const d = new Day(w, newDay(w));
   d.start();
@@ -255,7 +255,7 @@ test('day 10: all 50 children are in and every one can be tapped on both floors'
   }
 });
 
-test('with all 50 children a good day gives a reward to pick', async ({ page }) => {
+test('with all the children a good day gives a reward to pick', async ({ page }) => {
   const w = fullWorld();
   const today = newDay(w);
   today.t = CLOSE;
