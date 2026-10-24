@@ -284,16 +284,16 @@ test("have a child: pick a look, they join today, and a day later they're a year
   await page.locator('.baby').tap();
   await page.locator('.maker .ok').tap();
   await expect(page.locator('.maker .name')).toHaveClass(/bad/);
-  await page.locator('.maker .name').fill('Luna');
+  await page.locator('.maker .name').fill('Zuzu');
   await page.locator('.pill', { hasText: '2' }).first().tap();
   await page.locator('.pill', { hasText: 'curly' }).tap();
   await page.locator('.pill', { hasText: 'Chatty' }).tap();
   await page.locator('.sw').nth(3).tap();
   await shot(page, '09-maker');
   await page.locator('.maker .ok').tap();
-  await expect(page.locator('.p.kid .tag', { hasText: 'Luna' })).toHaveCount(1);
+  await expect(page.locator('.p.kid .tag', { hasText: 'Zuzu' })).toHaveCount(1);
   await expect(page.locator('.baby')).toBeHidden();
-  await page.locator('.p.kid', { hasText: 'Luna' }).locator('.hit').tap();
+  await page.locator('.p.kid', { hasText: 'Zuzu' }).locator('.hit').tap();
   await expect(page.locator('.card')).toContainText('My child');
   await expect(page.locator('.card')).toContainText('Age 2');
   for (let i = 0; i < 120 && !(await page.locator('.night').count()); i++) {
@@ -301,7 +301,7 @@ test("have a child: pick a look, they join today, and a day later they're a year
     if (await page.locator('.p.parent.front').count()) { await serveDesk(page); continue; }
     if (!(await modalOpen(page))) await skip(page);
   }
-  await expect(page.locator('.kc', { hasText: 'Luna' })).toHaveCount(1);
+  await expect(page.locator('.kc', { hasText: 'Zuzu' })).toHaveCount(1);
   await page.locator('.next').tap();
-  await expect(page.locator('.say p')).toContainText('Happy birthday, Luna! Luna is 3 today!');
+  await expect(page.locator('.say p')).toContainText('Happy birthday, Zuzu! Zuzu is 3 today!');
 });
