@@ -2,7 +2,7 @@ import { Page, expect, test } from '@playwright/test';
 import { MAX_CHILDREN } from '../src/game/catalog';
 import { CLOSE, Day, OPEN, newDay } from '../src/game/day';
 import { KEY } from '../src/game/save';
-import { newWorld, nextDay } from '../src/game/world';
+import { GROWN_UP, haveChild, newWorld, nextDay } from '../src/game/world';
 
 const SHOTS = process.env.SHOTS;
 async function shot(page: Page, name: string) {
@@ -304,4 +304,21 @@ test("have a child: pick a look, they join today, and a day later they're a year
   await expect(page.locator('.kc', { hasText: 'Zuzu' })).toHaveCount(1);
   await page.locator('.next').tap();
   await expect(page.locator('.say p')).toContainText('Happy birthday, Zuzu! Zuzu is 3 today!');
+});
+
+test('at 16 Isabelle\'s child helps: walks over and says so', async ({ page }) => {
+  const w = fullWorld();
+  const c = haveChild(w, { name: 'Zuzu', age: 0, pers: 'chatty', sex: 'girl', skin: 2, hair: 'wisps', hairColor: 'brown', outfit: { suit: 'baby:suit-1' } });
+  while (c.age < GROWN_UP) nextDay(w);
+  const d = new Day(w, newDay(w));
+  d.start();
+  d.s.t = OPEN + 60;
+  for (const f of d.s.fams) { f.leave = CLOSE; d.dropOff(f.id); }
+  for (const k of d.s.kids) if (k.here && k.floor === 'down') k.m.fun = 90;
+  await seed(page, w, d.s);
+  await page.goto('/');
+  await page.locator('.play').tap();
+  await expect(page.locator('.p.helper .tag', { hasText: 'Zuzu (helper)' })).toHaveCount(1);
+  await expect(page.locator('.say p')).toContainText("Zuzu: I'll help", { timeout: 20000 });
+  await shot(page, '11-own-helper');
 });

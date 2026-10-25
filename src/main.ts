@@ -88,12 +88,13 @@ room.addEventListener('click', (e) => {
 
 // ---------- talking ----------
 
-function say(who: 'isabelle' | 'emily', text: string) {
+function say(who: 'isabelle' | 'emily' | 'own', text: string) {
   const bar = app.querySelector('.say')!;
   const face = bar.querySelector<HTMLElement>('.face')!;
-  face.innerHTML = who === 'emily' ? sprite('staff/emily', SIZES.staff.emily, 300) : doll(w.isabelle, 'adult');
+  const own = ownChild(w);
+  face.innerHTML = who === 'emily' ? sprite('staff/emily', SIZES.staff.emily, 300) : who === 'own' && own ? doll(own, own.age) : doll(w.isabelle, 'adult');
   face.dataset.who = who;
-  bar.querySelector('p')!.innerHTML = `<b>${who === 'emily' ? 'Emily' : 'Isabelle'}:</b> ${esc(text)}`;
+  bar.querySelector('p')!.innerHTML = `<b>${who === 'emily' ? 'Emily' : who === 'own' && own ? esc(own.name) : 'Isabelle'}:</b> ${esc(text)}`;
   bar.classList.remove('flash');
   void (bar as HTMLElement).offsetWidth;
   bar.classList.add('flash');
@@ -119,6 +120,8 @@ const talking = new Map<number, { with: number; line: string }>();
 const justIn = new Set<number>();
 const lastPos = new Map<string, string>();
 let emilyTrip: { x: number; y: number; back: number; home: number } | null = null;
+/** Isabelle's grown-up child out helping a child, like Emily. */
+let ownTrip: { x: number; y: number; floor: Floor; back: number } | null = null;
 let lastCrySound = 0;
 let lastCryNote = 0;
 
@@ -330,10 +333,12 @@ function render() {
   }
   const own = ownChild(w);
   if (own && ownIsHelper(w)) {
-    const [x, y] = HELPER_SPOTS.down[used.down];
+    if (ownTrip && now > ownTrip.back) ownTrip = null;
+    const [x, y] = ownTrip ? [ownTrip.x, ownTrip.y] : HELPER_SPOTS.down[used.down];
+    const fl: Floor = ownTrip?.floor ?? 'down';
     const e = mark(el('own-helper', () => '', lookKey(own), 'helper'));
-    place(e, x, y, dollBox(own.age, 300 * depth(y)), 'down');
-    drawn.push({ key: 'own-helper', art: { doll: own, age: own.age, mood: 'happy' }, x, y, box: dollBox(own.age, 300 * depth(y)), floor: 'down' });
+    place(e, x, y, dollBox(own.age, 300 * depth(y)), fl);
+    drawn.push({ key: 'own-helper', art: { doll: own, age: own.age, mood: 'happy' }, x, y, box: dollBox(own.age, 300 * depth(y)), floor: fl });
     e.querySelector('.tag')!.textContent = `💖 ${own.name} (helper)`;
   }
   app.querySelector<HTMLElement>('.baby')!.hidden = !!own;
@@ -536,6 +541,7 @@ function doAct(id: number, st: Station) {
 
 function handleEvents(events: Event[]) {
   const now = performance.now();
+  let helperSpoke = false;
   for (const ev of events) {
     if (ev.type === 'arrive' || ev.type === 'pickup') {
       sfx.ding();
@@ -550,7 +556,10 @@ function handleEvents(events: Event[]) {
       if (k.floor === view) setTimeout(() => fx(ACTS[ev.act].e, k.x, k.y - 200), 300);
       if (ev.helper === 'emily') {
         emilyTrip = { x: k.x + 80, y: k.y + 10, back: now + 3500, home: now + 4500 };
-        say('emily', `I'll help ${day.child(k.id).name} with ${ACTS[ev.act].want.replace(/^(a |an |to |the )/, '')}!`);
+        if (!helperSpoke) say('emily', `I'll help ${day.child(k.id).name} with ${ACTS[ev.act].want.replace(/^(a |an |to |the )/, '')}!`);
+      } else if (ev.helper === 'own') {
+        ownTrip = { x: k.x - 80, y: k.y + 10, floor: k.floor, back: now + 4000 };
+        if (k.floor === view) { helperSpoke = true; say('own', `I'll help ${day.child(k.id).name} with ${ACTS[ev.act].want.replace(/^(a |an |to |the )/, '')}!`); }
       }
     } else if (ev.type === 'selfplay') {
       if (sel !== k.id) moveKidTo(k, stationFor(ev.act, k.floor));
