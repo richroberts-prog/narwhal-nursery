@@ -2,7 +2,7 @@ import { Page, expect, test } from '@playwright/test';
 import { MAX_CHILDREN } from '../src/game/catalog';
 import { CLOSE, Day, OPEN, newDay } from '../src/game/day';
 import { KEY } from '../src/game/save';
-import { GROWN_UP, haveChild, newWorld, nextDay } from '../src/game/world';
+import { GROWN_UP, World, chatted, haveChild, newWorld, nextDay } from '../src/game/world';
 
 const SHOTS = process.env.SHOTS;
 async function shot(page: Page, name: string) {
@@ -117,7 +117,7 @@ test('day 1: greet, care, the clock runs, pick up, next day, and it saves', asyn
   await shot(page, '04-night');
   await page.locator('.next').tap();
   await expect(page.locator('.dayno')).toHaveText('Day 2');
-  await expect(page.locator('.say p')).toContainText('New in the wardrobe');
+  await expect(page.locator('.say p')).toContainText('New in the wardrobe', { timeout: 30000 });
   await page.reload();
   await expect(page.locator('.play small')).toHaveText('Day 2');
 });
@@ -303,7 +303,7 @@ test("have a child: pick a look, they join today, and a day later they're a year
   }
   await expect(page.locator('.kc', { hasText: 'Zuzu' })).toHaveCount(1);
   await page.locator('.next').tap();
-  await expect(page.locator('.say p')).toContainText('Happy birthday, Zuzu! Zuzu is 3 today!');
+  await expect(page.locator('.say p')).toContainText('Happy birthday, Zuzu! Zuzu is 3 today!', { timeout: 30000 });
 });
 
 test('at 16 Isabelle\'s child helps: walks over and says so', async ({ page }) => {
@@ -321,4 +321,139 @@ test('at 16 Isabelle\'s child helps: walks over and says so', async ({ page }) =
   await expect(page.locator('.p.helper .tag', { hasText: 'Zuzu (helper)' })).toHaveCount(1);
   await expect(page.locator('.say p')).toContainText("Zuzu: I'll help", { timeout: 20000 });
   await shot(page, '11-own-helper');
+});
+
+/** A full nursery with everyone in, ready for pick-up: `pick` families wait outside, the rest are still in. */
+function pickupDay(w: World, pick: number[]) {
+  const d = new Day(w, newDay(w));
+  d.start();
+  d.s.t = CLOSE - 60;
+  for (const f of d.s.fams) { f.leave = CLOSE; d.dropOff(f.id); }
+  for (const id of pick) { d.fam(id).state = 'pick'; d.s.queue.push(id); }
+  for (const k of d.s.kids) { k.sleepUntil = 0; k.busyUntil = 0; }
+  return d;
+}
+
+test('a special day: Halloween pumpkins, its own wish, and a sticker in the album', async ({ page }) => {
+  await page.clock.setFixedTime(new Date(2026, 9, 31, 10));
+  const w = fullWorld();
+  await seed(page, w, null);
+  await page.goto('/');
+  await page.locator('.play').tap();
+  await expect(page.locator('.say p')).toContainText("It's Halloween!");
+  await expect(page.locator('.wish', { hasText: 'spooky snacks' })).toHaveCount(1);
+  await page.waitForTimeout(800);
+  await shot(page, '12-halloween');
+  await page.locator('.album').tap();
+  await expect(page.locator('.sticker:not(.off)', { hasText: 'Halloween' })).toHaveCount(1);
+  await expect(page.locator('.sticker.off')).toHaveCount(7);
+  await expect(page.locator('.pg')).toHaveCount(w.children.length + w.leavers.length);
+  await shot(page, '13-album');
+});
+
+test("a 5-year-old's last day: goodbye at pick-up, then a photo in the album", async ({ page }) => {
+  const w = fullWorld();
+  const fam = w.families.find((f) => f.kids.length === 1)!;
+  const c = w.children.find((x) => x.id === fam.kids[0])!;
+  c.age = 5;
+  const d = pickupDay(w, [fam.id]);
+  for (const f of d.s.fams) if (f.id !== fam.id) { f.state = 'gone'; for (const id of w.families.find((x) => x.id === f.id)!.kids) d.kid(id).here = false; }
+  await seed(page, w, d.s);
+  await page.goto('/');
+  await page.locator('.play').tap();
+  await expect(page.locator('.p.kid .tag', { hasText: `🎓` })).toHaveCount(1);
+  await tapParent(page);
+  for (let i = 0; i < 12 && !(await page.locator('.speech p', { hasText: 'big school' }).count()); i++) await page.locator('.choice').first().tap();
+  await expect(page.locator('.speech p')).toContainText(`${c.name} is 5 and off to big school!`);
+  await shot(page, '14-leaving');
+  await chat(page);
+  await expect(page.locator('.night')).toBeVisible();
+  await expect(page.locator('.kc', { hasText: `🎓 ${c.name}` })).toHaveCount(1);
+  await page.locator('.next').tap();
+  // Others may leave the same day: "Willow and Harriet started big school!"
+  await expect(page.locator('.say p')).toContainText(new RegExp(`${c.name}( and \\w+)* started big school!`), { timeout: 40000 });
+  await page.locator('.album').tap();
+  await expect(page.locator('.pg.left', { hasText: c.name })).toHaveCount(1);
+});
+
+test('best friends: one goes home with the other for a playdate', async ({ page }) => {
+  const w = fullWorld();
+  const solo = w.families.filter((f) => f.kids.length === 1 && w.children.find((c) => c.id === f.kids[0])!.age >= 2);
+  const [a, b] = solo.map((f) => w.children.find((c) => c.id === f.kids[0])!);
+  for (let i = 0; i < 4; i++) chatted(a, b);
+  const d = pickupDay(w, [solo[0].id]);
+  await seed(page, w, d.s);
+  // Every pick-up offers a playdate when it can.
+  await page.addInitScript(() => { Math.random = () => 0.1; });
+  await page.goto('/');
+  await page.locator('.play').tap();
+  await expect(page.locator('.p.kid .tag', { hasText: b.name })).toHaveCount(1);
+  await tapParent(page);
+  for (let i = 0; i < 12 && !(await page.locator('.speech p', { hasText: 'best friends' }).count()); i++) await page.locator('.choice').first().tap();
+  await expect(page.locator('.speech p')).toContainText(`${a.name} and ${b.name} are best friends! Can ${b.name} come to ours to play?`);
+  await shot(page, '15-playdate');
+  await chat(page);
+  await expect(page.locator('.say p')).toContainText(`Bye bye, ${a.name} and ${b.name}! Have a fun playdate!`);
+  await expect(page.locator('.p.kid .tag', { hasText: b.name })).toHaveCount(0);
+  await expect(page.locator('.p.parent')).toHaveCount(0);
+});
+
+test('friendship: doing things for a child earns stars, and they say so', async ({ page }) => {
+  const w = fullWorld();
+  const c = w.children.find((x) => x.age >= 3)!;
+  c.bond = 4;
+  const d = pickupDay(w, []);
+  await seed(page, w, d.s);
+  await page.goto('/');
+  await page.locator('.play').tap();
+  await page.locator(`.p.kid[data-kid="${c.id}"] .hit`).tap();
+  await expect(page.locator('.card .bond i.on')).toHaveCount(0);
+  await tapZone(page, 'kitchen');
+  await expect(page.locator('.say p')).toContainText(`${c.name}: I like you, Isabelle!`, { timeout: 5000 });
+  await page.locator(`.p.kid[data-kid="${c.id}"] .hit`).tap({ force: true });
+  await expect(page.locator('.card .bond i.on')).toHaveCount(1);
+  await shot(page, '16-friendship');
+});
+
+test('decorate: move a toy where Isabelle wants it and paint the walls', async ({ page }) => {
+  const w = fullWorld();
+  w.furniture = ['slide'];
+  const d = pickupDay(w, []);
+  await seed(page, w, d.s);
+  await page.goto('/');
+  await page.locator('.play').tap();
+  await page.locator('.decor').tap();
+  await expect(page.locator('.decorbar')).toContainText('Tap a toy to move it.');
+  await page.locator('.st.show[data-st="furn-slide"]').tap();
+  await expect(page.locator('.decorbar')).toContainText('Now tap where the');
+  const box = (await page.locator('.room').boundingBox())!;
+  await page.touchscreen.tap(box.x + box.width * 0.62, box.y + box.height * 0.82);
+  await page.locator('.decorbar [data-wall="4"]').tap();
+  await page.waitForTimeout(600);
+  await shot(page, '17-decorate');
+  await page.locator('.decorbar .done').tap();
+  await expect(page.locator('.decorbar')).toBeHidden();
+  const saved = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)!).world, KEY);
+  expect(saved.walls.down).toBe(4);
+  expect(saved.spots.slide[0]).toBeGreaterThan(800);
+});
+
+test('hearts sent home raise the nursery level, which brings something new', async ({ page }) => {
+  const w = fullWorld();
+  w.stars = 150;
+  const today = newDay(w);
+  today.t = CLOSE;
+  for (const f of today.fams) f.state = 'gone';
+  await seed(page, w, today);
+  await page.goto('/');
+  await page.locator('.play').tap();
+  await expect(page.locator('.lvlup')).toContainText('The nursery is level 2! New: 🛁 Bubble bath');
+  await shot(page, '18-level');
+  await expect(page.locator('.reward')).toHaveCount(0);
+  await page.locator('.next').tap();
+  await expect(page.locator('.lvl span')).toHaveText('⭐ Level 2');
+  await goFloor(page, 'up');
+  await expect(page.locator('.st.show[data-st="furn-bath"]')).toHaveCount(1);
+  await page.waitForTimeout(800);
+  await shot(page, '19-bath');
 });

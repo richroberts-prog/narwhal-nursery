@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { ACTS, BOY_NAMES, FULL_DAY, GIRL_NAMES, MAX_CHILDREN, PERSONALITIES, Personality, allowed, favourite } from '../src/game/catalog';
+import { ACTS, BOND_AT, BOY_NAMES, FULL_DAY, GIRL_NAMES, GROW_EVERY, LEAVE_AGE, LEVEL_UNLOCKS, MAX_CHILDREN, PERSONALITIES, Personality, SURPRISES, allowed, favourite, levelFor } from '../src/game/catalog';
 import { HAIR, ITEM, ITEMS, NEEDED, SLOTS, STARTER, fits, kindOf } from '../src/game/looks';
 import { CLOSE, Day, METERS, METER_OF, OPEN, SPEED, clock, newDay } from '../src/game/day';
 import { KEY, load, save, wipe } from '../src/game/save';
-import { heartsLine, hello, tip } from '../src/game/talk';
-import { Child, GROWN_UP, PARENTS, World, earnsReward, familyTones, haveChild, matchFamilies, newWorld, nextDay, nursery, ownChild, rewardChoices, takeReward } from '../src/game/world';
+import { bondLine, heartsLine, hello, leavingLine, playdateAsk, tip } from '../src/game/talk';
+import { Child, GROWN_UP, PARENTS, World, bestFriend, childrenBy, bondLevel, chatted, claimSurprise, earnsReward, familyTones, fillNew, haveChild, lastDay, levelUp, matchFamilies, newWorld, nextDay, nursery, ownChild, rewardChoices, surpriseFor, takeReward } from '../src/game/world';
 
 function seeded(seed: number) {
   return () => {
@@ -54,8 +54,9 @@ describe('the nursery grows', () => {
     const w = newWorld(rng);
     const counts = [w.children.length];
     for (let d = 0; d < 40; d++) {
-      const { families } = nextDay(w, rng);
-      if (w.day > FULL_DAY) expect(families).toEqual([]);
+      const { families, leavers } = nextDay(w, rng);
+      // Once full, a new family only comes to take the place of children who left.
+      if (w.day > FULL_DAY) expect(families.length > 0).toBe(leavers.length > 0);
       else expect(families.length).toBeGreaterThanOrEqual(1);
       if (w.day <= FULL_DAY) counts.push(w.children.length);
     }
@@ -452,5 +453,173 @@ describe('talk and saving', () => {
       nextDay(w, rng);
     }
     expect(w.children).toHaveLength(MAX_CHILDREN);
+  });
+});
+
+describe('growing up and leaving', () => {
+  it('visiting children have a birthday every few days, and at 5 have a last day, then leave for the album', () => {
+    const rng = seeded(41);
+    const w = newWorld(rng);
+    const c = w.children[0];
+    const startAge = c.age;
+    const seen: number[] = [];
+    for (let i = 0; i < GROW_EVERY * 6 && w.children.includes(c); i++) {
+      const news = nextDay(w, rng);
+      if (news.birthdays.includes(c)) { seen.push(c.age); expect(c.bday).toBe(w.day); }
+      if (c.age === LEAVE_AGE) expect(lastDay(c)).toBe(true);
+    }
+    expect(seen).toEqual(Array.from({ length: LEAVE_AGE - startAge }, (_, i) => startAge + i + 1));
+    expect(w.children).not.toContain(c);
+    expect(w.leavers.map((l) => l.id)).toContain(c.id);
+    expect(w.leavers.find((l) => l.id === c.id)!.left).toBeGreaterThan(1);
+    // A new family takes the place.
+    expect(nursery(w)).toHaveLength(childrenBy(w.day));
+    expect(w.families.every((f) => f.kids.length > 0)).toBe(true);
+  });
+
+  it("Isabelle's own child never leaves", () => {
+    const rng = seeded(42);
+    const w = newWorld(rng);
+    haveChild(w, { name: 'Zuzu', age: 4, pers: 'chatty', sex: 'girl', skin: 2, hair: 'curly', hairColor: 'brown', outfit: {} });
+    for (let i = 0; i < 10; i++) nextDay(w, rng);
+    expect(ownChild(w)!.age).toBe(14);
+    expect(w.leavers.some((l) => l.name === 'Zuzu')).toBe(false);
+  });
+
+  it('a leaving line and its parent say names only', () => {
+    const c = newWorld(seeded(3)).children[0];
+    expect(leavingLine(c)).toContain(c.name);
+    expect(leavingLine(c)).not.toMatch(/\b(he|she|his|her)\b/i);
+  });
+});
+
+describe('friendship with Isabelle', () => {
+  it('grows with what Isabelle does herself, 2 for a favourite, gives stars at each step and never drops', () => {
+    const rng = seeded(43);
+    const w = newWorld(rng);
+    const d = new Day(w, newDay(w, rng), rng);
+    d.start();
+    d.dropOff(w.families[0].id);
+    const id = w.families[0].kids[0];
+    const c = d.child(id);
+    const fav = favourite(c.pers, c.age);
+    const stars: number[] = [];
+    for (let i = 0; i < 40; i++) {
+      const k = d.kid(id);
+      k.sleepUntil = 0;
+      const r = d.act(id, fav);
+      if (r.ok && r.bondUp) stars.push(r.bondUp);
+    }
+    expect(c.bond).toBe(80);
+    expect(c.favFound).toBe(true);
+    expect(stars).toEqual([1, 2, 3, 4]);
+    expect(bondLevel(c)).toBe(BOND_AT.length);
+    for (let s = 1; s <= 4; s++) expect(bondLine(s)).toContain('Isabelle');
+    nextDay(w, rng);
+    expect(c.bond).toBe(80);
+  });
+
+  it('helpers and Emily do not count', () => {
+    const rng = seeded(44);
+    const w = newWorld(rng);
+    const d = playDay(w, rng);
+    void d;
+    // playDay acts as Isabelle; a day where only helpers act leaves bond alone.
+    const w2 = newWorld(rng);
+    const d2 = new Day(w2, newDay(w2, rng), rng);
+    d2.start();
+    for (const f of d2.s.fams) d2.dropOff(f.id);
+    d2.advance(200);
+    expect(w2.children.every((c) => !c.bond)).toBe(true);
+  });
+});
+
+describe('best friends and playdates', () => {
+  it('the child chatted with most (3 or more times) is the best friend, and best friends chat more', () => {
+    const w = newWorld(seeded(45));
+    const [a, b, c] = w.children;
+    chatted(a, b); chatted(a, b);
+    expect(bestFriend(w, a)).toBe(null);
+    chatted(a, b); chatted(a, c);
+    expect(bestFriend(w, a)).toBe(b);
+    expect(bestFriend(w, b)).toBe(a);
+  });
+
+  it('at pick-up a child can take their best friend home; the friend’s family then has nobody to collect', () => {
+    for (let seed = 1; seed < 80; seed++) {
+      const rng = seeded(seed);
+      const w = newWorld(rng);
+      for (let i = 0; i < 4; i++) nextDay(w, rng);
+      const d = new Day(w, newDay(w, rng), rng);
+      d.start();
+      for (const f of d.s.fams) d.dropOff(f.id);
+      const solo = w.families.filter((f) => f.kids.length === 1 && d.child(f.kids[0]).age >= 2);
+      if (solo.length < 2) continue;
+      const [fa, fb] = solo;
+      const [a, b] = [d.child(fa.kids[0]), d.child(fb.kids[0])];
+      for (let i = 0; i < 3; i++) chatted(a, b);
+      let p = null;
+      for (let i = 0; i < 30 && !p; i++) p = d.playdate(fa.id);
+      expect(p).toEqual({ kid: a.id, friend: b.id });
+      expect(playdateAsk(a, b, 'mum')).not.toMatch(/\b(he|she|his|her)\b/i);
+      d.pickUp(fa.id, [b.id]);
+      expect(d.kid(b.id).here).toBe(false);
+      expect(d.fam(fb.id).state).toBe('gone');
+      expect(fb.last?.hearts[b.id]).toBeDefined();
+      return;
+    }
+    throw new Error('no seed had two one-child families');
+  });
+});
+
+describe('nursery level', () => {
+  it('hearts sent home raise the level; each level brings the next new thing, never a day reward', () => {
+    const rng = seeded(46);
+    const w = newWorld(rng);
+    expect(w.level).toBe(1);
+    playDay(w, rng);
+    expect(w.stars).toBeGreaterThan(0);
+    w.stars = 1000;
+    expect(levelUp(w)).toEqual(LEVEL_UNLOCKS.slice(0, 4));
+    expect(w.level).toBe(5);
+    expect(levelFor(99)).toBe(1);
+    expect(levelFor(100)).toBe(2);
+    for (let i = 0; i < 20; i++) for (const r of rewardChoices(w, rng)) if (r.kind === 'furniture') expect(LEVEL_UNLOCKS).not.toContain(r.id);
+  });
+});
+
+describe('surprises', () => {
+  it('one a real day, never on day 1; the calendar picks Halloween and Christmas; each is an album sticker', () => {
+    const rng = seeded(47);
+    const w = newWorld(rng);
+    expect(claimSurprise(w, new Date(2026, 9, 31), rng)).toBe(null);
+    nextDay(w, rng);
+    expect(claimSurprise(w, new Date(2026, 9, 31), rng)).toBe('halloween');
+    nextDay(w, rng);
+    expect(claimSurprise(w, new Date(2026, 9, 31), rng)).toBe(null);
+    expect(claimSurprise(w, new Date(2026, 11, 3), rng)).toBe('christmas');
+    expect(w.stickers).toEqual(['halloween', 'christmas']);
+    for (let i = 0; i < 50; i++) expect(['pyjamas', 'teddies', 'parcel', 'balloons']).toContain(surpriseFor(new Date(2026, 6, 10), rng));
+  });
+
+  it("a special day's wish asks for its own thing", () => {
+    const rng = seeded(48);
+    const w = newWorld(rng);
+    for (let i = 0; i < 9; i++) nextDay(w, rng);
+    const s = newDay(w, rng, 'halloween');
+    expect(s.wishes.find((x) => x.kind === 'act')!.text).toBe(SURPRISES.halloween.wish[1]);
+  });
+});
+
+describe('older saves', () => {
+  it('get the new parts empty and keep everything else', () => {
+    const w = newWorld(seeded(49)) as Partial<World> & World;
+    for (const k of ['leavers', 'stars', 'level', 'stickers', 'surpriseOn', 'spots', 'walls'] as const) delete w[k];
+    const kids = JSON.stringify(w.children);
+    fillNew(w);
+    expect(w.leavers).toEqual([]);
+    expect(w.level).toBe(1);
+    expect(w.walls).toEqual({ down: 0, up: 1 });
+    expect(JSON.stringify(w.children)).toBe(kids);
   });
 });

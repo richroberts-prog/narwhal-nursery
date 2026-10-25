@@ -51,15 +51,20 @@ export const FRONTS: Record<Floor, { id: string; x: number; y: number; w: number
 /** Painted sticker sizes from the art build. */
 export const SIZES = rooms as unknown as Record<'parents' | 'helpers' | 'rewards' | 'staff' | 'bedding', Record<string, [number, number]>>;
 
-const SLOTS: Record<Floor, [number, number][]> = { down: [[640, 760], [860, 730], [1180, 760]], up: [[600, 760], [980, 735], [300, 760]] };
+const SLOTS: Record<Floor, [number, number][]> = {
+  down: [[640, 760], [860, 730], [1180, 760], [560, 600], [1150, 640], [760, 640]],
+  up: [[600, 760], [980, 735], [300, 760], [1250, 760], [800, 640], [500, 650]],
+};
 
-/** Furniture the player owns, placed in its floor's free spots in the order it was won. */
-export function furnitureStations(owned: FurnId[]): Station[] {
+/** Furniture the player owns: where Isabelle put it, else its floor's next free spot in the order it was won. */
+export function furnitureStations(owned: FurnId[], spots: Partial<Record<FurnId, [number, number]>> = {}): Station[] {
   const used: Record<Floor, number> = { down: 0, up: 0 };
   return owned.map((id) => {
     const f = FURNITURE[id];
-    const [x, y] = SLOTS[f.floor][used[f.floor]++ % 3];
-    const [w, h] = SIZES.rewards[id];
+    const slot = SLOTS[f.floor][used[f.floor]++ % SLOTS[f.floor].length];
+    const [x, y] = spots[id] ?? slot;
+    // Level things are built in 3D, not painted: a wide, low box.
+    const [w, h] = SIZES.rewards[id] ?? [16, 10];
     const H = 150;
     const W = (H * w) / h;
     return { id: `furn-${id}`, floor: f.floor, zone: [x - W / 2, y - H, x + W / 2, y] as Box, label: `${f.e} ${f.name}`, act: 'play' as Act, kind: 'furn' as const, minAge: f.minAge, kx: x + W / 2 + 20, ky: y - 10 };

@@ -100,3 +100,15 @@ export function kidTalk(rng: Rng, a: Child, b: Child): [string, string] {
   const put = (s: string) => s.replaceAll('{a}', a.name).replaceAll('{b}', b.name);
   return [put(x), put(y)];
 }
+
+/** A parent at pick-up asks to take their child's best friend home to play. */
+export const playdateAsk = (c: Child, friend: Child, friendParent: string) =>
+  `${c.name} and ${friend.name} are best friends! Can ${friend.name} come to ours to play? I've told ${friend.name}'s ${friendParent}.`;
+
+/** A 5-year-old's last day, at pick-up. */
+export const leavingLine = (c: Child) => `${c.name} is 5 and off to big school! Thank you for everything, Isabelle!`;
+
+/** What a child says when they like Isabelle a little more (friendship stars 1 to 4). */
+export const bondLine = (stars: number) => [
+  '', 'I like you, Isabelle! 💛', 'Big hug, Isabelle! 🤗', 'I drew you a picture, Isabelle! 🖍️', "You're my best teacher, Isabelle! 💖",
+][Math.max(0, Math.min(4, stars))];

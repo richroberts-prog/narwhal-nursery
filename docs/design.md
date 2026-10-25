@@ -52,3 +52,25 @@
 - The rooms are 3D (three.js) under the same tap layer; each room keeps its 1376 x 768 room-pixel layout, mapped to 3D
   by a camera spot per room. The people stay the painted paper dolls, standing in the room as cut-outs facing the
   camera (Rich tried Roblox-style 3D people and chose the painted ones).
+
+## Long-term play (2026-10-25)
+
+Rich asked for the six changes from the research on what keeps the top kids' games played (Toca Boca World, Animal
+Crossing, Hello Kitty Island Adventure, Tamagotchi), plus best friends going home together.
+
+- Growing up: each visiting child has a birthday every 5 days (🎂 on their tag). At 5 it's their last day (🎓); the
+  parent says goodbye at pick-up, and the next morning they've started big school and a new family takes the place.
+  Isabelle's own child never leaves.
+- Friendship with Isabelle: what she does herself (1, or 2 for the favourite) fills 4 stars (at 5, 15, 30, 50) and
+  never drops. Each new star the child says so; from 2 stars they say hello and hug at drop-off. Helpers and Emily don't count.
+- Best friends: children who chat 3 times or more become best friends and seek each other out. About one pick-up in
+  three, a child's best friend goes home with them for a playdate; a family with nobody left doesn't need to come.
+- Album (📒): every child's photo, friendship stars, favourite (❓ until Isabelle has given it), best friend, who
+  went to big school, and a sticker for each special day.
+- One surprise a real day (not day 1): Halloween week and Advent by the calendar, snow in winter, eggs in spring,
+  otherwise pyjama day, teddy bears' picnic, a parcel (3 new clothes) or balloons. Each brings decorations, its own
+  wish and an album sticker. Missing a day costs nothing.
+- Decorate (🎨): move the toys won or unlocked, and choose each room's wall colour. The clock waits.
+- Nursery level: hearts sent home add up; level 2 at 100, then 300, 600, 1000, 1500, each bringing a new thing built in
+  3D (no paintings to buy): bubble bath, sandpit, bunny, tea party, playhouse.
+- Older saves keep everything; the new parts start empty (no `World.v` change).

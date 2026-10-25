@@ -1,15 +1,15 @@
 // Screens: start, the nursery (one level in 3D, parents outside), chats with parents, the wardrobe, having a child, and the end of the day.
 import './style.css';
-import { ACTS, Act, FURNITURE, Floor, HELPERS, HelperId, PERSONALITIES, Personality, favourite } from './game/catalog';
+import { ACTS, Act, FURNITURE, Floor, FurnId, HELPERS, HelperId, PERSONALITIES, Personality, SURPRISES, SurpriseId, WALLS, favourite, starsFor } from './game/catalog';
 import { CLOSE, Day, DayKid, Event, MAX_HEARTS, METERS, METER_INFO, SPEED, WANT, Wish, clock, newDay } from './game/day';
 import { HAIR, HAIR_COLOURS, ITEM, Kind, Look, NEEDED, SKIN_TONES, SLOTS, SLOT_LABEL, Sex, Slot, fits, itemsFor, kindOf, randomLook, regrow } from './game/looks';
 import { load, save, wipe } from './game/save';
-import { checkTip, didLabel, heartsLine, hello, homeTalk, kidTalk, reaction, smallTalk, tip, tipAnswer, tipMore, yesterday } from './game/talk';
-import { Child, Family, GROWN_UP, NewChild, OWN, Reward, World, earnsReward, familyName, haveChild, matchFamilies, newWorld, nextDay, ownChild, ownIsHelper, rewardChoices, takeReward, unlockSome } from './game/world';
+import { bondLine, checkTip, didLabel, heartsLine, hello, homeTalk, kidTalk, leavingLine, playdateAsk, reaction, smallTalk, tip, tipAnswer, tipMore, yesterday } from './game/talk';
+import { Child, Family, GROWN_UP, NewChild, OWN, Reward, World, bestFriend, birthdayToday, bondLevel, claimSurprise, earnsReward, familyName, fillNew, haveChild, lastDay, levelUp, matchFamilies, newWorld, nextDay, ownChild, ownIsHelper, rewardChoices, takeReward, unlockSome } from './game/world';
 import { Mood, doll, dollBox, sprite } from './ui/dolls';
 import { DOOR, EMILY_SPOT, FRONTS, FRONT_DOOR, insideFrom, HOME_SPOT, PLAY_AREA, QUEUE, ROOM_H, ROOM_W, SIZES, STATIONS, Station, furnitureStations } from './ui/room';
 import { actSound, setMuted, sfx, startMusic } from './ui/sound';
-import { Entry, carry, carryState, freeze, isCarried, mount, setStations, setView, sync } from './ui/three/world3d';
+import { Entry, carry, carryState, freeze, isCarried, mount, setDecor, setStations, setView, setWalls, sync } from './ui/three/world3d';
 
 const store = (() => { try { return window.localStorage; } catch { return null; } })();
 const app = document.getElementById('app')!;
@@ -26,7 +26,8 @@ const HELPER_SPOTS: Record<Floor, [number, number][]> = { down: [[560, 640], [79
 
 function persist() { save(store, { world: w, today: day?.s ?? null }); }
 const famOf = (id: number): Family => w.families.find((f) => f.id === id)!;
-const stations = (): Station[] => [...STATIONS, ...furnitureStations(w.furniture)];
+const stations = (): Station[] => [...STATIONS, ...furnitureStations(w.furniture, w.spots)];
+const applyWalls = () => setWalls({ down: WALLS[w.walls.down], up: WALLS[w.walls.up] });
 
 // ---------- layout ----------
 
@@ -37,6 +38,7 @@ app.innerHTML = `<div id="stage">
   </main>
   <aside class="hud">
     <div class="dayno"></div>
+    <div class="lvl"><span></span><i><b></b></i></div>
     <div class="clock"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#fff" stroke="#ffb3c8" stroke-width="6"/>
       ${Array.from({ length: 12 }, (_, i) => `<circle cx="${50 + 36 * Math.sin((i * Math.PI) / 6)}" cy="${50 - 36 * Math.cos((i * Math.PI) / 6)}" r="${i % 3 ? 2 : 3.5}" fill="#c7bcef"/>`).join('')}
       <line class="hh" x1="50" y1="50" x2="50" y2="28" stroke="#3d3a5c" stroke-width="5" stroke-linecap="round"/>
@@ -47,7 +49,8 @@ app.innerHTML = `<div id="stage">
   </aside>
   <div class="wishes"></div>
   <aside class="card" hidden></aside>
-  <div class="say"><div class="face"></div><p></p><button class="baby">👶 Have a child</button><button class="mute icon" aria-label="Sound off">🔊</button></div>
+  <div class="decorbar" hidden></div>
+  <div class="say"><div class="face"></div><p></p><button class="baby">👶 Have a child</button><button class="album icon" aria-label="Album">📒</button><button class="decor icon" aria-label="Decorate">🎨</button><button class="mute icon" aria-label="Sound off">🔊</button></div>
   <div class="modal" hidden></div>
 </div>`;
 
@@ -76,6 +79,7 @@ function drawZones() {
 }
 
 room.addEventListener('click', (e) => {
+  if (decorating) return decorTap(e);
   const t = e.target as HTMLElement;
   const p = t.closest<HTMLElement>('.p');
   if (p) {
@@ -88,16 +92,26 @@ room.addEventListener('click', (e) => {
 
 // ---------- talking ----------
 
-function say(who: 'isabelle' | 'emily' | 'own', text: string) {
+/** Isabelle, Emily, or a child says something in the bar along the bottom. */
+function say(who: 'isabelle' | 'emily' | Child, text: string) {
+  clearTimeout(sayLater);
   const bar = app.querySelector('.say')!;
   const face = bar.querySelector<HTMLElement>('.face')!;
-  const own = ownChild(w);
-  face.innerHTML = who === 'emily' ? sprite('staff/emily', SIZES.staff.emily, 300) : who === 'own' && own ? doll(own, own.age) : doll(w.isabelle, 'adult');
-  face.dataset.who = who;
-  bar.querySelector('p')!.innerHTML = `<b>${who === 'emily' ? 'Emily' : who === 'own' && own ? esc(own.name) : 'Isabelle'}:</b> ${esc(text)}`;
+  face.innerHTML = who === 'emily' ? sprite('staff/emily', SIZES.staff.emily, 300) : who === 'isabelle' ? doll(w.isabelle, 'adult') : doll(who, who.age);
+  face.dataset.who = typeof who === 'string' ? who : 'child';
+  bar.querySelector('p')!.innerHTML = `<b>${who === 'emily' ? 'Emily' : who === 'isabelle' ? 'Isabelle' : esc(who.name)}:</b> ${esc(text)}`;
   bar.classList.remove('flash');
   void (bar as HTMLElement).offsetWidth;
   bar.classList.add('flash');
+}
+
+/** Several lines one after another, a few seconds each (the morning news). */
+let sayLater = 0;
+function sayAll(who: 'isabelle' | 'emily', lines: string[]) {
+  const [first, ...rest] = lines.filter(Boolean);
+  if (!first) return;
+  say(who, first);
+  if (rest.length) sayLater = window.setTimeout(() => sayAll(who, rest), 4000);
 }
 
 function fx(text: string, x: number, y: number, cls = '') {
@@ -175,8 +189,9 @@ function homeSpot(k: DayKid) {
 }
 
 const standing = (floor: Floor) => day.present().filter((o) => o.floor === floor && o.x && !o.at.startsWith('bed:') && !(day.asleep(o) && o.floorNap));
-/** A busy room draws its children smaller so they all fit: full size up to 16 in a room. */
-const crowd = (floor: Floor) => Math.min(1, Math.sqrt(16 / Math.max(1, standing(floor).length)));
+/** A busy room draws its children smaller so they all fit: full size up to 12 in a room (with children growing out of
+ *  the baby room, a full nursery often has all 16 in the play room). */
+const crowd = (floor: Floor) => Math.min(1, Math.sqrt(12 / Math.max(1, standing(floor).length)));
 
 /** Too close: side by side, or one just in front of the other (a child in front covers whoever is behind). A busy floor
  * (over 22 on it) stands in staggered rows: the next row along is close, but never straight in front of anyone. */
@@ -198,7 +213,7 @@ function gridSpots(f: Floor, c: number, h: number): [number, number][] {
   return spots;
 }
 
-/** Whatever moved them, nobody stays standing on top of someone else. A busy room (over 16) puts every standing
+/** Whatever moved them, nobody stays standing on top of someone else. A busy room (over 12) puts every standing
  * child on a grid spot: whoever is already on one keeps it, the rest take the nearest free one. */
 function spreadOut() {
   for (const f of ['down', 'up'] as Floor[]) {
@@ -268,6 +283,9 @@ function render() {
   const s = day.s;
   const now = performance.now();
   app.querySelector('.dayno')!.textContent = `Day ${w.day}`;
+  const lvl = app.querySelector<HTMLElement>('.lvl')!;
+  lvl.querySelector('span')!.textContent = `⭐ Level ${w.level}`;
+  lvl.querySelector<HTMLElement>('b')!.style.width = `${Math.min(100, (100 * (w.stars - starsFor(w.level))) / (starsFor(w.level + 1) - starsFor(w.level)))}%`;
   app.querySelector('.time')!.textContent = clock(s.t);
   app.querySelector('.hh')!.setAttribute('transform', `rotate(${((s.t / 60) % 12) * 30} 50 50)`);
   app.querySelector('.mh')!.setAttribute('transform', `rotate(${(s.t % 60) * 6} 50 50)`);
@@ -381,7 +399,7 @@ function render() {
     });
     justIn.delete(k.id);
     e.classList.toggle('carried', isCarried(`kid${k.id}`));
-    e.querySelector('.tag')!.textContent = `${c.fam === OWN ? '💖' : ''}${PERSONALITIES[c.pers].e} ${c.name}`;
+    e.querySelector('.tag')!.textContent = `${c.fam === OWN ? '💖' : ''}${lastDay(c) ? '🎓' : birthdayToday(w, c) ? '🎂' : ''}${PERSONALITIES[c.pers].e} ${c.name}`;
     const b = e.querySelector<HTMLElement>('.bubble')!;
     const talkingNow = (chatting.get(k.id) ?? 0) > now;
     b.hidden = !need && !asleep && !talkingNow;
@@ -420,12 +438,19 @@ function sideCard() {
   const c = day.child(sel);
   const need = day.need(k);
   const want = day.asleep(k) ? '💤 Asleep' : need ? `${ACTS[day.needAct(k)].e} Wants ${ACTS[day.needAct(k)].want}` : '😊 Happy';
+  const best = bestFriend(w, c);
   card.innerHTML = `<b>${esc(c.name)}</b>
     <small>${c.fam === OWN ? '💖 My child · ' : ''}${c.age === 0 ? 'Newborn' : `Age ${c.age}`} · ${PERSONALITIES[c.pers].e} ${PERSONALITIES[c.pers].label}</small>
+    ${lastDay(c) ? '<small class="special">🎓 Last day! Off to big school</small>' : birthdayToday(w, c) ? '<small class="special">🎂 Birthday today!</small>' : ''}
+    ${c.fam === OWN ? '' : `<div class="bond" aria-label="Friendship">${friendStars(c)}</div>`}
+    ${best ? `<small>👯 Best friend: ${esc(best.name)}</small>` : ''}
     <div class="hearts">${hearts(k.hearts)}</div>
     <div class="meters">${METERS.filter((m) => m !== 'fun' || c.age > 0).map((m) => `<div class="meter ${k.m[m] >= WANT ? 'hi' : ''}"><span>${METER_INFO[m].e}</span><i style="width:${Math.round(k.m[m])}%"></i></div>`).join('')}</div>
     <small class="want">${want}</small>`;
 }
+
+/** Friendship with Isabelle: 4 stars to fill. */
+const friendStars = (c: Child) => Array.from({ length: 4 }, (_, i) => `<i class="${i < bondLevel(c) ? 'on' : ''}">★</i>`).join('');
 
 function drawWishes() {
   const box = app.querySelector<HTMLElement>('.wishes')!;
@@ -475,6 +500,7 @@ function tapStation(st: Station) {
 function switchFloor() {
   sfx.pop();
   view = view === 'down' ? 'up' : 'down';
+  if (decorating) { render(); return; }
   const stairs = STATIONS.find((s) => s.kind === 'stairs' && s.floor === view)!;
   me[view] = { x: stairs.kx - 40, y: stairs.ky };
   if (sel !== null) {
@@ -534,6 +560,10 @@ function doAct(id: number, st: Station) {
   fx(ACTS[st.act!].e, k.x, k.y - 200);
   if (r.matched || r.fav) setTimeout(() => fx(r.fav ? '💖💖' : '💖', k.x, k.y - 160, 'heart'), 250);
   say('isabelle', r.fav ? `${c.name} loved that! It's the favourite!` : r.matched ? `Yay! ${c.name} feels much better.` : `${c.name} had fun!`);
+  if (r.bondUp && c.fam !== OWN) {
+    // A new friendship star: the child says so.
+    setTimeout(() => { say(c, bondLine(r.bondUp)); sfx.sparkle(); }, 1200);
+  }
   wishesDone(r.wishes);
   persist();
   render();
@@ -559,7 +589,7 @@ function handleEvents(events: Event[]) {
         if (!helperSpoke) say('emily', `I'll help ${day.child(k.id).name} with ${ACTS[ev.act].want.replace(/^(a |an |to |the )/, '')}!`);
       } else if (ev.helper === 'own') {
         ownTrip = { x: k.x - 80, y: k.y + 10, floor: k.floor, back: now + 4000 };
-        if (k.floor === view) { helperSpoke = true; say('own', `I'll help ${day.child(k.id).name} with ${ACTS[ev.act].want.replace(/^(a |an |to |the )/, '')}!`); }
+        if (k.floor === view) { helperSpoke = true; say(ownChild(w)!, `I'll help ${day.child(k.id).name} with ${ACTS[ev.act].want.replace(/^(a |an |to |the )/, '')}!`); }
       }
     } else if (ev.type === 'selfplay') {
       if (sel !== k.id) moveKidTo(k, stationFor(ev.act, k.floor));
@@ -634,7 +664,7 @@ setInterval(() => {
   const dt = Math.min(1, (now - lastTick) / 1000);
   lastTick = now;
   // Chats, the wardrobe and a hidden tab all pause the day.
-  if (!started || !modal.hidden || document.hidden || day.done()) return;
+  if (!started || !modal.hidden || decorating || document.hidden || day.done()) return;
   handleEvents(day.advance(SPEED * dt));
   render();
   if (now - lastSave > 4000) { persist(); lastSave = now; }
@@ -688,7 +718,10 @@ async function dropChat(famId: number) {
   }
   sfx.giggle();
   const babies = kids.filter((c) => c.age === 0).map((c) => c.name);
-  say('emily', babies.length ? `${babies.join(' and ')} ${babies.length > 1 ? 'are' : 'is'} in the baby room.` : `${names} ${kids.length > 1 ? 'are' : 'is'} in! Have fun!`);
+  // Children who really like Isabelle run in for a hug.
+  const hugger = kids.find((c) => bondLevel(c) >= 2);
+  if (hugger) { say(hugger, `Hi Isabelle! 🤗`); if (day.kid(hugger.id).floor === view) fx('🤗', me[view].x, me[view].y - 300); }
+  else say('emily', babies.length ? `${babies.join(' and ')} ${babies.length > 1 ? 'are' : 'is'} in the baby room.` : `${names} ${kids.length > 1 ? 'are' : 'is'} in! Have fun!`);
   busy = false;
   persist();
   render();
@@ -710,12 +743,19 @@ async function pickChat(famId: number) {
     const did = [...new Set(k.did)].slice(-4) as Act[];
     const i = await ask(`What else did ${c.name} do today?`, did.length ? did.map(didLabel) : ['😌 A quiet day']);
     await ask(`${did.length ? `${reaction(Math.random, did[i])} ` : ''}${heartsLine(c, k.hearts)}`, ['😊']);
+    if (lastDay(c)) { sfx.cheer(); await ask(leavingLine(c), [`Bye bye, ${c.name}! 💖`]); }
   }
+  // Best friends: sometimes one goes home with the other to play.
+  const p = day.playdate(famId);
+  const friend = p && day.child(p.friend);
+  if (p && friend) await ask(playdateAsk(day.child(p.kid), friend, day.fam(friend.fam).parent), ['Yes! Have fun! 🎉']);
   await ask(homeTalk(Math.random), ['Bye bye! 👋']);
   closeModal();
-  const done = day.pickUp(famId);
+  const done = day.pickUp(famId, friend ? [friend.id] : []);
   if (sel !== null && !day.kid(sel).here) sel = null;
-  say('emily', `Bye bye, ${names}! See you tomorrow!`);
+  const leaving = kids.filter(lastDay);
+  if (leaving.length) for (let i = 0; i < 6; i++) setTimeout(() => fx(['🎉', '🎓', '🎈'][i % 3], 300 + i * 120, 300 + (i % 2) * 80), i * 150);
+  say('emily', friend ? `Bye bye, ${names} and ${friend.name}! Have a fun playdate!` : leaving.length ? `Good luck at big school, ${leaving.map((c) => c.name).join(' and ')}! 🎓` : `Bye bye, ${names}! See you tomorrow!`);
   wishesDone(done);
   busy = false;
   persist();
@@ -803,6 +843,95 @@ function openWardrobe(start?: number) {
   draw();
 }
 
+// ---------- the album ----------
+
+app.querySelector('.album')!.addEventListener('click', () => { if (!busy && !decorating) { sfx.pop(); openAlbum(); } });
+
+/** Every child's photo, what Isabelle has found out about them, who went to big school, and the special-day stickers.
+ *  The gaps (❓) are what's left to find. */
+function openAlbum() {
+  busy = true;
+  const everyone: (Child & { left?: number; best?: string })[] = [...w.children, ...w.leavers];
+  const found = everyone.filter((c) => c.favFound).length;
+  const ids = Object.keys(SURPRISES) as SurpriseId[];
+  const page = (c: Child & { left?: number; best?: string }) => {
+    const fav = ACTS[favourite(c.pers, c.age)];
+    const best = c.left ? c.best : bestFriend(w, c)?.name;
+    return `<div class="pg ${c.left ? 'left' : ''}">
+      <div class="photo">${doll(c, c.age, 'happy', c.age === 0 ? 100 : 130)}</div>
+      <b>${c.fam === OWN ? '💖 ' : ''}${esc(c.name)}</b>
+      ${c.fam === OWN ? '<small>My child</small>' : `<div class="bond">${friendStars(c)}</div>`}
+      <small>${c.favFound ? `${fav.e} Loves ${fav.label.toLowerCase()}` : '❓ Favourite?'}</small>
+      ${best ? `<small>👯 ${esc(best)}</small>` : ''}
+      ${bondLevel(c) >= 3 ? '<small>🖼️ Drew me a picture</small>' : ''}
+      ${c.left ? `<small class="special">🎓 Big school, day ${c.left}</small>` : ''}
+    </div>`;
+  };
+  modal.hidden = false;
+  modal.innerHTML = `<div class="albumbook">
+    <h2>📒 Nursery album</h2>
+    <p class="tally">${found} of ${everyone.length} favourites found · ${w.leavers.length} off to big school · ${w.stickers.length} of ${ids.length} special days</p>
+    <div class="stickers">${ids.map((id) => w.stickers.includes(id) ? `<div class="sticker">${SURPRISES[id].e}<small>${SURPRISES[id].name}</small></div>` : '<div class="sticker off">❓<small>Coming soon</small></div>').join('')}</div>
+    <div class="pages">${everyone.map(page).join('')}</div>
+    <button class="done">Done ✓</button></div>`;
+  modal.querySelector('.done')!.addEventListener('click', () => { sfx.pop(); closeModal(); busy = false; render(); });
+}
+
+// ---------- decorating: move the toys and paint the walls ----------
+
+let decorating = false;
+let moving: FurnId | null = null;
+const decorbar = app.querySelector<HTMLElement>('.decorbar')!;
+app.querySelector('.decor')!.addEventListener('click', () => { if (!busy || decorating) { sfx.pop(); setDecorating(!decorating); } });
+
+function setDecorating(on: boolean) {
+  decorating = on;
+  busy = on;
+  moving = null;
+  sel = null;
+  stage.classList.toggle('decorating', on);
+  drawDecorbar();
+  if (!on) persist();
+  render();
+}
+
+function drawDecorbar() {
+  decorbar.hidden = !decorating;
+  if (!decorating) return;
+  const mine = w.furniture.filter((id) => FURNITURE[id].floor === view);
+  const text = moving ? `Now tap where the ${FURNITURE[moving].e} ${FURNITURE[moving].name} goes.`
+    : mine.length ? 'Tap a toy to move it.' : `No toys in the ${view === 'up' ? 'baby room' : 'play room'} yet.`;
+  decorbar.innerHTML = `<p>🎨 ${text}</p>
+    <div class="walls"><span>Walls</span>${WALLS.map(([a, b], i) => `<button class="sw ${w.walls[view] === i ? 'on' : ''}" data-wall="${i}" style="background:linear-gradient(${a}, ${b})" aria-label="Wall colour ${i + 1}"></button>`).join('')}</div>
+    <button class="done">Done ✓</button>`;
+  decorbar.querySelectorAll<HTMLElement>('[data-wall]').forEach((b) => b.addEventListener('click', () => {
+    sfx.sparkle();
+    w.walls[view] = Number(b.dataset.wall);
+    applyWalls();
+    drawDecorbar();
+  }));
+  decorbar.querySelector('.done')!.addEventListener('click', () => { sfx.pop(); setDecorating(false); });
+  zonesEl.querySelectorAll<HTMLElement>('.st-furn').forEach((z) => z.classList.toggle('moving', z.dataset.st === `furn-${moving}`));
+}
+
+/** While decorating: tap a toy to pick it up, then tap the floor where it goes. */
+function decorTap(e: MouseEvent) {
+  const st = (e.target as HTMLElement).closest<HTMLElement>('.st');
+  if (st?.classList.contains('st-stairs')) { moving = null; switchFloor(); drawDecorbar(); return; }
+  if (st?.classList.contains('st-furn')) { sfx.pop(); moving = st.dataset.st!.slice(5) as FurnId; drawDecorbar(); return; }
+  if (!moving) { sfx.nope(); return; }
+  const r = room.getBoundingClientRect();
+  const y = Math.round(Math.max(590, Math.min(765, ((e.clientY - r.top) * ROOM_H) / r.height)));
+  const x = Math.round(Math.max(insideFrom(view, y) + 70, Math.min(view === 'up' ? 1300 : 1190, ((e.clientX - r.left) * ROOM_W) / r.width)));
+  w.spots[moving] = [x, y];
+  moving = null;
+  sfx.sparkle();
+  drawZones();
+  drawDecorbar();
+  persist();
+  render();
+}
+
 // ---------- Isabelle's own child ----------
 
 app.querySelector('.baby')!.addEventListener('click', () => { if (!busy) { sfx.pop(); babyMaker(); } });
@@ -877,11 +1006,15 @@ function endOfDay() {
   const came = day.s.kids.filter((k) => k.here || day.s.fams.find((f) => f.id === day.child(k.id).fam)?.state === 'gone');
   const rewards = earnsReward(w, came.filter((k) => day.child(k.id).fam !== OWN).map((k) => k.hearts)) ? rewardChoices(w) : [];
   const wishes = day.s.wishes.filter((wi) => wi.got >= wi.target).length;
+  const was = w.level;
+  const got = levelUp(w);
+  persist();
   modal.hidden = false;
   modal.innerHTML = `<div class="night">
     <h2>Day ${w.day} done! 🌙</h2>
     <p class="wishline">${'⭐'.repeat(wishes)}${'☆'.repeat(3 - wishes)} ${wishes} of 3 wishes came true</p>
-    <div class="kids">${came.map((k) => { const c = day.child(k.id); return `<div class="kc"><div class="mini">${doll(c, c.age, 'asleep', c.age === 0 ? 60 : 80)}</div><b>${esc(c.name)}</b><div class="hearts">${hearts(k.hearts)}</div></div>`; }).join('')}</div>
+    ${w.level > was ? `<p class="lvlup">🎉 The nursery is level ${w.level}!${got.length ? ` New: ${got.map((id) => `${FURNITURE[id].e} ${FURNITURE[id].name}`).join(', ')}` : ''}</p>` : ''}
+    <div class="kids">${came.map((k) => { const c = day.child(k.id); return `<div class="kc"><div class="mini">${doll(c, c.age, 'asleep', c.age === 0 ? 60 : 80)}</div><b>${lastDay(c) ? '🎓 ' : ''}${esc(c.name)}</b><div class="hearts">${hearts(k.hearts)}</div></div>`; }).join('')}</div>
     ${rewards.length ? `<h3>What a great day! Pick a reward:</h3><div class="rewards">${rewards.map((r, i) => `<button class="reward" data-i="${i}">${rewardCard(r)}</button>`).join('')}</div>` : ''}
     <button class="next" ${rewards.length ? 'hidden' : ''}>Next day ☀️</button></div>`;
   modal.querySelectorAll<HTMLElement>('.reward').forEach((b) => b.addEventListener('click', () => {
@@ -896,14 +1029,18 @@ function endOfDay() {
     const news = nextDay(w);
     closeModal();
     busy = false;
-    startDay();
     const b = news.birthday;
-    const lines = [
+    const names = (cs: Child[]) => cs.map((c) => c.name).join(' and ');
+    const last = news.birthdays.filter(lastDay);
+    const bdays = news.birthdays.filter((c) => !lastDay(c));
+    startDay([
       b ? (b.age >= GROWN_UP ? `${b.name} is ${b.age} and all grown up! ${b.name} is a helper now! 🎉` : `Happy birthday, ${b.name}! ${b.name} is ${b.age} today! 🎂`) : '',
+      bdays.length ? `🎂 Happy birthday, ${bdays.map((c) => `${c.name} (${c.age})`).join(' and ')}!` : '',
+      last.length ? `🎓 ${names(last)} ${last.length > 1 ? 'are' : 'is'} 5! It's the last day before big school.` : '',
+      news.leavers.length ? `${names(news.leavers)} started big school! The photo is in the album. 📒` : '',
       news.families.length > 1 ? `${news.families.length} new families are coming today!` : news.families.length ? 'A new family is coming today!' : '',
       news.clothes.length ? `New in the wardrobe: ${news.clothes.map((i) => i.name).join(', ')}!` : '',
-    ].filter(Boolean);
-    say('emily', `Good morning, Isabelle! ${lines.join(' ')}`);
+    ]);
   });
 }
 
@@ -915,16 +1052,25 @@ function rewardCard(r: Reward): string {
 
 // ---------- start ----------
 
-function startDay() {
-  day = new Day(w, newDay(w));
+/** A new nursery day, with today's surprise if it's the first day played this real date, and Emily's morning news. */
+function startDay(news: string[] = []) {
+  const sid = claimSurprise(w, new Date());
+  const gift = sid === 'parcel' ? unlockSome(w, 3) : [];
+  day = new Day(w, newDay(w, Math.random, sid ?? undefined));
   view = 'down';
   sel = null;
   peopleEl.innerHTML = '';
   lastPos.clear();
   drawZones();
+  setDecor(sid);
   handleEvents(day.start());
   persist();
   render();
+  const sp = sid && SURPRISES[sid];
+  sayAll('emily', [
+    sp ? `Good morning, Isabelle! ${sp.e} ${sp.morning}${gift.length ? ` ${gift.map((i) => i.name).join(', ')}!` : ''}` : news.length ? 'Good morning, Isabelle!' : '',
+    ...news,
+  ]);
 }
 
 function begin(saved: ReturnType<typeof load>) {
@@ -932,17 +1078,21 @@ function begin(saved: ReturnType<typeof load>) {
   started = true;
   if (saved) {
     w = saved.world;
+    fillNew(w);
     matchFamilies(w);
+    applyWalls();
     setMuted(w.muted);
     if (saved.today && saved.today.day === w.day) {
       day = new Day(w, saved.today);
       drawZones();
+      setDecor(day.s.surprise ?? null);
       render();
       say('emily', 'Welcome back, Isabelle!');
       checkEnd();
     } else startDay();
   } else {
     w = newWorld();
+    applyWalls();
     startDay();
     say('emily', "Hi Isabelle! I'm Emily. Parents are waiting outside the door. Tap them to say hello!");
   }

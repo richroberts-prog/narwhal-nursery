@@ -250,6 +250,55 @@ export function reward(id: string, w: number, h: number) {
       g.add(at(shade(new THREE.Mesh(new THREE.ConeGeometry(w * 0.3, 0.3, 6), mat('#ff9eb5'))), 0, H * 0.6, 0.01));
       break;
     }
+    case 'bath': {
+      const W = w * 0.95;
+      g.add(at(rbox(W, 0.42, 0.75, 0.18, mat('#8ec5f0', { roughness: 0.3 })), 0, 0.33, 0));
+      g.add(at(rbox(W * 0.86, 0.04, 0.58, 0.02, mat('#bfe6ff', { roughness: 0.1 })), 0, 0.52, 0));
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(at(sph(0.07, gold), sx * W * 0.4, 0.07, sz * 0.28));
+      const foam = mat('#ffffff', { roughness: 0.3 });
+      for (let i = 0; i < 14; i++) g.add(at(sph(0.06 + (i % 3) * 0.025, foam), (((i * 7) % 13) / 12 - 0.5) * W * 0.75, 0.56 + (i % 2) * 0.03, (((i * 5) % 7) / 6 - 0.5) * 0.45));
+      const duck = new THREE.Group(); duck.add(sph(0.08, mat('#ffd23f')), at(sph(0.055, mat('#ffd23f')), 0.06, 0.08, 0), at(sph(0.025, mat('#ff9a3c')), 0.11, 0.08, 0));
+      g.add(at(duck, W * 0.2, 0.62, 0.1));
+      break;
+    }
+    case 'sandpit': {
+      const sand = rbox(w * 0.85, 0.12, 0.9, 0.04, mat('#f3d58a', { roughness: 1 }));
+      g.add(at(sand, 0, 0.12, 0));
+      for (const [x, z, sw, sd] of [[0, 0.47, w * 0.9, 0.1], [0, -0.47, w * 0.9, 0.1], [-w * 0.45, 0, 0.1, 0.95], [w * 0.45, 0, 0.1, 0.95]]) g.add(at(rbox(sw, 0.28, sd, 0.03, mat('#5fb0e8')), x, 0.14, z));
+      g.add(at(cyl(0.12, 0.09, 0.2, mat('#ff6b6b')), -w * 0.18, 0.28, 0.1));
+      g.add(at(sph(0.16, mat('#f3d58a', { roughness: 1 })), w * 0.15, 0.2, -0.1));
+      break;
+    }
+    case 'bunny': {
+      g.add(at(rbox(w * 0.75, 0.6, 0.55, 0.05, wood), 0, 0.3, -0.15));
+      g.add(at(rbox(w * 0.78, 0.08, 0.6, 0.03, mat('#e86a6a')), 0, 0.64, -0.15));
+      const fur = mat('#ffffff', { roughness: 0.95 });
+      const b = new THREE.Group(), body = sph(0.17, fur); body.scale.set(1.2, 1, 1); b.add(at(body, 0, 0.17, 0));
+      b.add(at(sph(0.11, fur), 0.17, 0.3, 0), at(sph(0.05, fur), -0.2, 0.2, 0), at(sph(0.02, mat('#ff8fb1')), 0.27, 0.3, 0.04));
+      for (const sz of [-1, 1]) { const ear = sph(0.05, fur); ear.scale.set(0.8, 2.6, 0.6); b.add(at(ear, 0.15, 0.48, sz * 0.05)); }
+      g.add(at(b, w * 0.05, 0, 0.3));
+      break;
+    }
+    case 'teaparty': {
+      g.add(at(cyl(0.38, 0.38, 0.05, mat('#ffffff')), 0, 0.45, 0), at(cyl(0.05, 0.08, 0.45, mat('#ff9eb5')), 0, 0.22, 0));
+      const pot = sph(0.11, mat('#7cc8ff', { roughness: 0.3 })); pot.scale.set(1, 0.85, 1); g.add(at(pot, 0, 0.56, 0));
+      for (const [x, z] of [[0.2, 0.12], [-0.2, 0.1], [0.05, -0.22]]) g.add(at(cyl(0.05, 0.04, 0.06, mat('#ffd23f')), x, 0.5, z));
+      for (const sx of [-1, 1]) {
+        const ch = new THREE.Group();
+        ch.add(at(rbox(0.3, 0.06, 0.3, 0.02, mat('#b48cf0')), 0, 0.28, 0), at(rbox(0.06, 0.35, 0.3, 0.02, mat('#b48cf0')), sx * 0.13, 0.45, 0));
+        for (const a of [-1, 1]) for (const b of [-1, 1]) ch.add(at(cyl(0.02, 0.02, 0.28, mat('#b48cf0')), a * 0.12, 0.14, b * 0.12));
+        g.add(at(ch, sx * 0.62, 0, 0));
+      }
+      break;
+    }
+    case 'playhouse': {
+      const W = w * 0.8, Hh = Math.min(1.2, H * 0.75);
+      g.add(at(rbox(W, Hh, 0.9, 0.04, mat('#fff1d6')), 0, Hh / 2, 0));
+      const roof = shade(new THREE.Mesh(new THREE.ConeGeometry(W * 0.78, 0.7, 4), mat('#ff7fa0'))); roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, 0.75); g.add(at(roof, 0, Hh + 0.35, 0));
+      g.add(at(rbox(0.32, 0.6, 0.04, 0.03, mat('#7cc8ff')), -W * 0.2, 0.3, 0.46), at(sph(0.025, gold), -W * 0.2 + 0.1, 0.3, 0.49));
+      g.add(at(rbox(0.3, 0.3, 0.04, 0.03, mat('#ffd23f')), W * 0.22, Hh * 0.6, 0.46));
+      break;
+    }
     default: { // rocking horse
       const body = sph(0.3, mat('#f2e2c8')); body.scale.set(1.7, 0.9, 0.8); g.add(at(body, 0, H * 0.55, 0));
       const head = sph(0.18, mat('#f2e2c8')); head.scale.set(1.3, 1, 0.8); g.add(at(head, w * 0.32, H * 0.82, 0));
@@ -259,4 +308,84 @@ export function reward(id: string, w: number, h: number) {
     }
   }
   return shade(g);
+}
+
+/** A special day's decorations, as a few small pieces; `spot(x, y, floor)` places them by room pixel. */
+export function decoration(id: string, spot: (x: number, y: number, floor: 'down' | 'up') => THREE.Vector3): THREE.Group {
+  const g = new THREE.Group();
+  const put = (o: THREE.Object3D, x: number, y: number, floor: 'down' | 'up', lift = 0) => { const p = spot(x, y, floor); o.position.set(p.x, lift, p.z); g.add(shade(o)); };
+  const pumpkin = (r: number) => {
+    // Ribbed: a ring of round segments, a green stem, and a carved face.
+    const p = new THREE.Group(), skin = mat('#ff8a1f', { roughness: 0.45, emissive: '#4a1800' });
+    for (let i = 0; i < 8; i++) { const a = (i * Math.PI) / 4, seg = sph(r * 0.62, skin); seg.scale.set(0.75, 1.15, 1.1); seg.rotation.y = -a; p.add(at(seg, Math.cos(a) * r * 0.45, r * 0.72, Math.sin(a) * r * 0.45)); }
+    const stem = cyl(r * 0.08, r * 0.12, r * 0.45, mat('#4f7a2a')); stem.rotation.z = 0.25; p.add(at(stem, 0, r * 1.5, 0));
+    const face = mat('#3a1a08', { emissive: '#ffb020', emissiveIntensity: 0.6 });
+    for (const sx of [-1, 1]) { const eye = shade(new THREE.Mesh(new THREE.ConeGeometry(r * 0.13, r * 0.2, 3), face)); p.add(at(eye, sx * r * 0.28, r * 0.95, r * 0.98)); }
+    const grin = rbox(r * 0.55, r * 0.1, r * 0.1, r * 0.04, face); p.add(at(grin, 0, r * 0.55, r * 1.0));
+    return p;
+  };
+  const tree = () => {
+    const t = new THREE.Group(); t.add(at(cyl(0.1, 0.12, 0.4, wood), 0, 0.2, 0));
+    for (let i = 0; i < 3; i++) t.add(at(shade(new THREE.Mesh(new THREE.ConeGeometry(0.75 - i * 0.18, 0.9, 18), mat('#3f9e5a', { roughness: 0.8 }))), 0, 0.7 + i * 0.5, 0));
+    const cols = ['#ff4f6b', '#ffd23f', '#6ab7ff', '#ff9eb5'];
+    for (let i = 0; i < 12; i++) { const a = i * 2.1, y = 0.5 + (i % 4) * 0.35, r = 0.62 - (i % 4) * 0.13; t.add(at(sph(0.06, mat(cols[i % 4], { metalness: 0.4, roughness: 0.3 })), Math.cos(a) * r, y, Math.sin(a) * r)); }
+    const star = new THREE.Mesh(extrude(starShape(0.16), 0.05, 0.02), mat('#ffd54a', { emissive: '#7a5a00' })); t.add(at(star, 0, 2.05, 0));
+    return t;
+  };
+  const egg = (c: string) => { const e = sph(0.09, mat(c, { roughness: 0.35 })); e.scale.set(1, 1.3, 1); return e; };
+  const balloon = (c: string) => {
+    const b = new THREE.Group(), ball = sph(0.22, mat(c, { roughness: 0.25 })); ball.scale.set(1, 1.15, 1);
+    b.add(at(ball, 0, 0, 0), at(cyl(0.006, 0.006, 1.4, mat('#ffffff')), 0, -0.95, 0));
+    return b;
+  };
+  const teddy = (c: string) => {
+    const t = new THREE.Group(), fur = mat(c, { roughness: 0.95 });
+    const body = sph(0.16, fur); body.scale.set(1, 1.15, 0.9); t.add(at(body, 0, 0.18, 0), at(sph(0.12, fur), 0, 0.42, 0));
+    for (const sx of [-1, 1]) t.add(at(sph(0.05, fur), sx * 0.1, 0.52, 0), at(sph(0.06, fur), sx * 0.14, 0.06, 0.06));
+    return t;
+  };
+  const cols = ['#ff6b8b', '#ffd23f', '#6ab7ff', '#7bd389', '#b48cf0', '#ffa552'];
+  switch (id) {
+    case 'halloween':
+      for (const [x, y, f, r] of [[600, 545, 'down', 0.26], [1225, 560, 'down', 0.24], [200, 610, 'down', 0.32], [140, 670, 'down', 0.24], [600, 560, 'up', 0.26], [1020, 560, 'up', 0.22]] as const) put(pumpkin(r), x, y, f);
+      break;
+    case 'christmas':
+      put(tree(), 1225, 545, 'down'); put(tree(), 1250, 560, 'up');
+      for (let i = 0; i < 3; i++) put(rbox(0.3, 0.25, 0.3, 0.03, mat(cols[i])), 1150 + i * 40, 600, 'down', 0.12);
+      break;
+    case 'snow': {
+      const s = new THREE.Group(), white = mat('#ffffff', { roughness: 0.9 });
+      s.add(at(sph(0.55, white), 0, 0.5, 0), at(sph(0.4, white), 0, 1.2, 0), at(sph(0.28, white), 0, 1.75, 0));
+      const nose = shade(new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.3, 10), mat('#ff8a1f'))); nose.rotation.x = Math.PI / 2; s.add(at(nose, 0, 1.75, 0.35));
+      s.add(at(cyl(0.22, 0.22, 0.3, mat('#3a3a48')), 0, 2.08, 0));
+      put(s, 335, 545, 'down');
+      // Drifts along the pavement and the hedge, and snow on the cuddle-room window sill.
+      for (let i = 0; i < 16; i++) { const lump = sph(0.25 + (i % 3) * 0.1, white); lump.scale.y = 0.35; put(lump, 210 + (i % 4) * 45, 530 + Math.floor(i / 4) * 55, 'down'); }
+      break;
+    }
+    case 'eggs':
+      for (let i = 0; i < 10; i++) put(egg(cols[i % 6]), 450 + i * 80, 575 + (i % 3) * 20, i % 2 ? 'down' : 'up', 0.11);
+      break;
+    case 'pyjamas':
+      for (let i = 0; i < 6; i++) put(rbox(0.55, 0.22, 0.45, 0.1, fabric(cols[i])), 470 + i * 140, 575 + (i % 2) * 15, i < 3 ? 'down' : 'up', 0.11);
+      break;
+    case 'teddies': {
+      const rug = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.2), new THREE.MeshStandardMaterial({ map: canvasTex(128, 128, (c) => { for (let x = 0; x < 8; x++) for (let y = 0; y < 8; y++) { c.fillStyle = (x + y) % 2 ? '#ff7f9f' : '#ffffff'; c.fillRect(x * 16, y * 16, 16, 16); } }), roughness: 1 }));
+      rug.rotation.x = -Math.PI / 2; put(rug, 1150, 590, 'down', 0.015);
+      for (const [x, c] of [[1110, '#b07a4a'], [1160, '#e0b07a'], [1205, '#8a5a34']] as const) put(teddy(c), x, 575, 'down');
+      put(teddy('#e0b07a'), 1250, 560, 'up');
+      break;
+    }
+    case 'parcel': {
+      const p = new THREE.Group();
+      p.add(at(rbox(0.6, 0.45, 0.5, 0.03, mat('#c98c55')), 0, 0.22, 0), at(rbox(0.62, 0.47, 0.1, 0.02, mat('#ff4f6b')), 0, 0.22, 0), at(rbox(0.1, 0.47, 0.52, 0.02, mat('#ff4f6b')), 0, 0.22, 0));
+      for (const s of [-1, 1]) { const bow = sph(0.09, mat('#ff4f6b')); bow.scale.set(1.4, 0.7, 0.7); p.add(at(bow, s * 0.1, 0.5, 0)); }
+      put(p, 420, 585, 'down', 1.2); // on the front desk
+      break;
+    }
+    case 'balloons':
+      for (let i = 0; i < 12; i++) put(balloon(cols[i % 6]), 430 + (i % 6) * 150, 540 + (i % 2) * 20, i < 6 ? 'down' : 'up', 2.4 + (i % 3) * 0.3);
+      break;
+  }
+  return g;
 }

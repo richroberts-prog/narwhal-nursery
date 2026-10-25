@@ -68,10 +68,12 @@ function wood() {
     }
   });
 }
+const wallCols: Record<Floor, [string, string]> = { down: ['#ffe3cf', '#fbd2bd'], up: ['#d9c8f0', '#c6b1e6'] };
 function wallpaper(up: boolean) {
+  const [top, low] = wallCols[up ? 'up' : 'down'];
   return F.canvasTex(1024, 1024, (c, w, h) => {
     const gr = c.createLinearGradient(0, 0, 0, h);
-    gr.addColorStop(0, up ? '#d9c8f0' : '#ffe3cf'); gr.addColorStop(1, up ? '#c6b1e6' : '#fbd2bd'); c.fillStyle = gr; c.fillRect(0, 0, w, h);
+    gr.addColorStop(0, top); gr.addColorStop(1, low); c.fillStyle = gr; c.fillRect(0, 0, w, h);
     c.fillStyle = 'rgba(255,255,255,.55)';
     for (let i = 0; i < 26; i++) {
       const x = (i * 397) % w, y = (i * 211) % h;
@@ -83,6 +85,9 @@ function wallpaper(up: boolean) {
   });
 }
 const plane = (w: number, h: number, m: THREE.Material) => { const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m); p.receiveShadow = true; return p; };
+/** Each room's wall pieces, so Isabelle can paint them. */
+const walls: { up: boolean; mat: THREE.MeshStandardMaterial; repeat: number }[] = [];
+const grassMat = new THREE.MeshStandardMaterial({ color: '#8fcf72', roughness: 1 });
 
 function buildBuilding() {
   const H = 6.5, depth = 11, front = back + depth;
@@ -93,15 +98,19 @@ function buildBuilding() {
   const pave = F.canvasTex(256, 256, (c) => { c.fillStyle = '#d8d4cc'; c.fillRect(0, 0, 256, 256); c.strokeStyle = '#b8b2a8'; c.lineWidth = 3; for (let i = 0; i <= 256; i += 64) { c.beginPath(); c.moveTo(i, 0); c.lineTo(i, 256); c.moveTo(0, i); c.lineTo(256, i); c.stroke(); } });
   pave.repeat.set(4, 6);
   const pv = plane(8, depth + 4, new THREE.MeshStandardMaterial({ map: pave, roughness: 0.9 })); pv.rotation.x = -Math.PI / 2; pv.position.set(glassX - 4, -0.01, back + depth / 2); building.add(pv);
-  const grass = plane(30, 30, new THREE.MeshStandardMaterial({ color: '#8fcf72', roughness: 1 })); grass.rotation.x = -Math.PI / 2; grass.position.set(glassX - 10, -0.03, back - 6); building.add(grass);
+  const grass = plane(30, 30, grassMat); grass.rotation.x = -Math.PI / 2; grass.position.set(glassX - 10, -0.03, back - 6); building.add(grass);
   // walls: back wall per room, the baby room's right wall, a stub wall and an arch between the rooms
   const wallFor = (up: boolean, x0: number, x1: number) => {
     const t = wallpaper(up); t.repeat.set((x1 - x0) / 5, 1);
-    const p = plane(x1 - x0, H, new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 })); p.position.set((x0 + x1) / 2, H / 2, back); building.add(p);
+    const m = new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 });
+    walls.push({ up, mat: m, repeat: (x1 - x0) / 5 });
+    const p = plane(x1 - x0, H, m); p.position.set((x0 + x1) / 2, H / 2, back); building.add(p);
     building.add(F.at(F.rbox(x1 - x0, 0.16, 0.05, 0.02, F.paint), (x0 + x1) / 2, 0.08, back + 0.025));
   };
   wallFor(false, glassX, archX); wallFor(true, archX, babyRight);
-  const rw = plane(depth, H, new THREE.MeshStandardMaterial({ map: (() => { const t = wallpaper(true); t.repeat.set(2, 1); return t; })(), roughness: 0.9 }));
+  const rwm = new THREE.MeshStandardMaterial({ map: (() => { const t = wallpaper(true); t.repeat.set(2, 1); return t; })(), roughness: 0.9 });
+  walls.push({ up: true, mat: rwm, repeat: 2 });
+  const rw = plane(depth, H, rwm);
   rw.rotation.y = -Math.PI / 2; rw.position.set(babyRight, H / 2, back + depth / 2); building.add(rw);
   const stub = F.rbox(0.3, H, 2.2, 0.05, F.mat('#f4ece4')); building.add(F.at(stub, archX, H / 2, back + 1.1));
   const beam = F.rbox(0.3, 0.5, depth - 2.2, 0.05, F.mat('#f4ece4')); building.add(F.at(beam, archX, 3.6, back + 2.2 + (depth - 2.2) / 2));
@@ -153,6 +162,25 @@ function buildBuilding() {
   const mp = pointAt(340, 560, 0, 'up'); mob.position.set(mp.x, 3.1, mp.z); mob.name = 'mobile'; building.add(mob);
 }
 buildBuilding();
+
+/** Paint each room's walls: [top, bottom] colours. */
+export function setWalls(cols: Record<Floor, [string, string]>) {
+  for (const f of ['down', 'up'] as Floor[]) {
+    if (wallCols[f].join() === cols[f].join()) continue;
+    wallCols[f] = cols[f];
+    for (const wl of walls) if (wl.up === (f === 'up')) { wl.mat.map?.dispose(); const t = wallpaper(wl.up); t.repeat.set(wl.repeat, 1); wl.mat.map = t; wl.mat.needsUpdate = true; }
+  }
+}
+
+/** Today's special-day decorations (or none). */
+let decor: { id: string; g: THREE.Group } | null = null;
+export function setDecor(id: string | null) {
+  if ((decor?.id ?? null) === id) return;
+  if (decor) scene.remove(decor.g);
+  decor = id ? { id, g: F.decoration(id, (x, y, f) => pointAt(x, y, 0, f)) } : null;
+  if (decor) scene.add(decor.g);
+  grassMat.color.set(id === 'snow' ? '#f4f8ff' : '#8fcf72');
+}
 
 // ---------- furniture from the stations ----------
 const beds = new Map<string, { pos: THREE.Vector3; len: number }>();

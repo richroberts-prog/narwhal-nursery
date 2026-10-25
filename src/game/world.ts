@@ -1,5 +1,5 @@
 // The nursery that lasts between days: families, children, clothes, helpers, furniture, and how it grows.
-import { BOY_NAMES, FULL_DAY, FURNITURE, FurnId, GIRL_NAMES, HELPERS, HelperId, MAX_CHILDREN, MAX_HELPERS, PERSONALITIES, Personality } from './catalog';
+import { BOND_AT, BOY_NAMES, FULL_DAY, FURNITURE, Floor, FurnId, GIRL_NAMES, GROW_EVERY, HELPERS, HelperId, LEAVE_AGE, LEVEL_UNLOCKS, MAX_CHILDREN, MAX_HELPERS, PERSONALITIES, Personality, SurpriseId, levelFor } from './catalog';
 import { ITEM, ITEMS, Item, Look, STARTER, Sex, kindOf, randomLook, regrow } from './looks';
 
 export type Rng = () => number;
@@ -13,7 +13,19 @@ export function shuffle<T>(rng: Rng, a: readonly T[]): T[] {
   return b;
 }
 
-export type Child = Look & { id: number; name: string; age: number; pers: Personality; fam: number; sex: Sex };
+export type Child = Look & {
+  id: number; name: string; age: number; pers: Personality; fam: number; sex: Sex;
+  /** How much Isabelle has done for this child; it only ever goes up (BOND_AT gives the stars). */
+  bond?: number;
+  /** How many times this child has chatted with each other child, by id. */
+  pals?: Record<number, number>;
+  /** Isabelle has given this child their favourite thing. */
+  favFound?: boolean;
+  /** The day of their last birthday. */
+  bday?: number;
+};
+/** A child who left for big school, as they were on their last day. */
+export type Leaver = Child & { left: number; best?: string };
 /** Painted grown-ups (public/art/parents) and the skin tone (0-5) their children are painted with. */
 export const PARENTS = {
   mums: { 'mum-1': 0, 'mum-2': 4, 'gran-1': 2, 'mum-3': 2, 'mum-4': 0, 'mum-5': 3 },
@@ -51,7 +63,25 @@ export type World = {
   isabelle: Look; helpers: HelperId[]; furniture: FurnId[]; muted: boolean;
   /** Isabelle's own child, if she has one. */
   own?: number;
+  leavers: Leaver[];
+  /** Hearts the nursery has ever sent home, and the level they have reached. */
+  stars: number; level: number;
+  /** Special days seen (album stickers), and the real date of the last one. */
+  stickers: SurpriseId[]; surpriseOn: string;
+  /** Where Isabelle has put each toy, and each room's wall colour (WALLS). */
+  spots: Partial<Record<FurnId, [number, number]>>; walls: Record<Floor, number>;
 };
+
+/** An older save gets the newer parts empty, so nothing it has is lost. */
+export function fillNew(w: World) {
+  w.leavers ??= [];
+  w.stars ??= 0;
+  w.level ??= levelFor(w.stars);
+  w.stickers ??= [];
+  w.surpriseOn ??= '';
+  w.spots ??= {};
+  w.walls ??= { down: 0, up: 1 };
+}
 
 /** Isabelle's own child has family 0: comes every day, nobody picks them up, and grows a year a day. */
 export const OWN = 0;
@@ -72,6 +102,7 @@ export function haveChild(w: World, c: NewChild): Child {
 export function newWorld(rng: Rng = Math.random): World {
   const w: World = {
     v: 3, day: 1, nextId: 1, families: [], children: [], unlocked: [...STARTER], helpers: [], furniture: [], muted: false,
+    leavers: [], stars: 0, level: 1, stickers: [], surpriseOn: '', spots: {}, walls: { down: 0, up: 1 },
     isabelle: { skin: 0, hair: 'long', hairColor: 'brown', outfit: { head: 'adult:head-1', outfit: 'adult:outfit-1' } },
   };
   addFamily(w, rng, 2);
@@ -118,9 +149,33 @@ export function unlockSome(w: World, n: number, rng: Rng = Math.random): Item[] 
   return got;
 }
 
-/** Move to the next day: two new clothes, new families up to the day's number of children, and Isabelle's child a year older. */
+/** A visiting child who is 5 has their last day today. */
+export const lastDay = (c: Child) => c.fam !== OWN && c.age >= LEAVE_AGE;
+export const birthdayToday = (w: World, c: Child) => c.fam !== OWN && c.bday === w.day;
+
+/** Off to big school: out of the nursery and into the album. A family with nobody left stops coming. */
+function leave(w: World, c: Child) {
+  w.leavers.push({ ...c, left: w.day - 1, best: bestFriend(w, c)?.name });
+  w.children = w.children.filter((x) => x !== c);
+  const fam = w.families.find((f) => f.id === c.fam)!;
+  fam.kids = fam.kids.filter((id) => id !== c.id);
+  if (!fam.kids.length) w.families = w.families.filter((f) => f !== fam);
+}
+
+/** Move to the next day: yesterday's 5-year-olds leave, birthdays, two new clothes, new families up to the day's number
+ *  of children, and Isabelle's child a year older. */
 export function nextDay(w: World, rng: Rng = Math.random) {
   w.day++;
+  const leavers = nursery(w).filter(lastDay);
+  for (const c of leavers) leave(w, c);
+  // Birthdays fall on different days for different children.
+  const birthdays = nursery(w).filter((c) => (w.day + c.id) % GROW_EVERY === 0);
+  for (const c of birthdays) {
+    const before = kindOf(c.age);
+    c.age++;
+    c.bday = w.day;
+    Object.assign(c, regrow(c, before, kindOf(c.age), w.unlocked, rng, c.sex));
+  }
   const clothes = unlockSome(w, 2, rng);
   const families: Family[] = [];
   for (let f: Family | null; nursery(w).length < childrenBy(w.day) && (f = addFamily(w, rng, undefined, childrenBy(w.day))); ) families.push(f);
@@ -132,7 +187,59 @@ export function nextDay(w: World, rng: Rng = Math.random) {
     Object.assign(own, regrow(own, before, kindOf(own.age), w.unlocked, rng, own.sex));
     birthday = own;
   }
-  return { clothes, families, birthday };
+  return { clothes, families, birthday, birthdays, leavers };
+}
+
+/** Friendship stars with Isabelle, 0 to 4. */
+export const bondLevel = (c: Child) => BOND_AT.filter((n) => (c.bond ?? 0) >= n).length;
+
+/** A child's best friend: the child here they have chatted with most, once they have chatted 3 times. */
+export function bestFriend(w: World, c: Child): Child | null {
+  let best: Child | null = null, most = 2;
+  for (const [id, n] of Object.entries(c.pals ?? {})) {
+    const o = w.children.find((x) => x.id === Number(id));
+    if (o && n > most) { best = o; most = n; }
+  }
+  return best;
+}
+
+export function chatted(a: Child, b: Child) {
+  a.pals = { ...a.pals, [b.id]: (a.pals?.[b.id] ?? 0) + 1 };
+  b.pals = { ...b.pals, [a.id]: (b.pals?.[a.id] ?? 0) + 1 };
+}
+
+/** Hearts sent home count toward the nursery's level; each new level brings the next thing on the list. */
+export function levelUp(w: World): FurnId[] {
+  const got: FurnId[] = [];
+  while (levelFor(w.stars) > w.level) {
+    w.level++;
+    const id = LEVEL_UNLOCKS[w.level - 2];
+    if (id && !w.furniture.includes(id)) { w.furniture.push(id); got.push(id); }
+  }
+  return got;
+}
+
+const SURPRISE_DEFAULT: SurpriseId[] = ['pyjamas', 'teddies', 'parcel', 'balloons'];
+/** The surprise for a real date: Halloween week and Advent have their own; winter can snow; spring has egg hunts. */
+export function surpriseFor(now: Date, rng: Rng): SurpriseId {
+  const m = now.getMonth() + 1, d = now.getDate();
+  if (m === 10 && d >= 24) return 'halloween';
+  if (m === 12 && d <= 26) return 'christmas';
+  const pool = [...SURPRISE_DEFAULT];
+  if (m === 12 || m <= 2) pool.push('snow');
+  if (m === 3 || m === 4) pool.push('eggs');
+  return pick(rng, pool);
+}
+
+/** One surprise a real day, on the first nursery day played that date (never on day 1, which is for learning).
+ *  A missed day costs nothing. */
+export function claimSurprise(w: World, now: Date, rng: Rng = Math.random): SurpriseId | null {
+  const date = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  if (w.day === 1 || w.surpriseOn === date) return null;
+  w.surpriseOn = date;
+  const id = surpriseFor(now, rng);
+  if (!w.stickers.includes(id)) w.stickers.push(id);
+  return id;
 }
 
 export type Reward = { kind: 'helper'; id: HelperId } | { kind: 'furniture'; id: FurnId } | { kind: 'clothes'; ids: string[] };
@@ -146,7 +253,7 @@ export function earnsReward(w: World, hearts: number[]): boolean {
 export function rewardChoices(w: World, rng: Rng = Math.random): Reward[] {
   const pool: Reward[] = [];
   if (w.helpers.length < MAX_HELPERS) for (const id of Object.keys(HELPERS) as HelperId[]) if (!w.helpers.includes(id)) pool.push({ kind: 'helper', id });
-  for (const id of Object.keys(FURNITURE) as FurnId[]) if (!w.furniture.includes(id)) pool.push({ kind: 'furniture', id });
+  for (const id of Object.keys(FURNITURE) as FurnId[]) if (!w.furniture.includes(id) && !LEVEL_UNLOCKS.includes(id)) pool.push({ kind: 'furniture', id });
   const clothes = shuffle(rng, lockedItems(w)).slice(0, 3).map((i) => i.id);
   // Clothes are always on offer while any are left, so the choice never runs dry early.
   const rest = shuffle(rng, pool).slice(0, clothes.length ? 2 : 3);

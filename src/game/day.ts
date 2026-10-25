@@ -1,7 +1,7 @@
 // One nursery day in real time: the clock, who is here, how hungry, tired, bored and needy each child is getting,
 // what children do by themselves, the queue at the desk, and who helps.
-import { ACTS, Act, FUN, Floor, HELPERS, HelperId, allowed, favourite } from './catalog';
-import { Child, GROWN_UP, OWN, Rng, World, familyName, ownIsHelper, pick } from './world';
+import { ACTS, Act, FUN, Floor, HELPERS, HelperId, SURPRISES, SurpriseId, allowed, favourite } from './catalog';
+import { Child, GROWN_UP, OWN, Rng, World, bestFriend, bondLevel, chatted, familyName, ownIsHelper, pick } from './world';
 
 export const OPEN = 8 * 60;
 export const CLOSE = 17 * 60;
@@ -32,7 +32,11 @@ export type DayKid = {
 };
 /** Today's three wishes: small goals for the player; each one done unlocks a piece of clothing. */
 export type Wish = { kind: 'favourite' | 'laughs' | 'act' | 'happyHome'; text: string; target: number; got: number; kid?: number; act?: Act };
-export type DayState = { day: number; t: number; fams: DayFam[]; kids: DayKid[]; queue: number[]; next: Record<string, number>; wishes: Wish[] };
+export type DayState = {
+  day: number; t: number; fams: DayFam[]; kids: DayKid[]; queue: number[]; next: Record<string, number>; wishes: Wish[];
+  /** Today's special day, if it is one. */
+  surprise?: SurpriseId;
+};
 
 const WISH_ACTS: [Act, (n: number) => string][] = [
   ['nap', (n) => `Put ${n} children down for a nap`], ['story', (n) => `Read ${n} stories`], ['painting', (n) => `Paint ${n} pictures`],
@@ -40,15 +44,18 @@ const WISH_ACTS: [Act, (n: number) => string][] = [
   ['bottle', (n) => `Give ${n} bottles`], ['cuddle', (n) => `Give ${n} cuddles`],
 ];
 
-function makeWishes(w: World, rng: Rng): Wish[] {
+function makeWishes(w: World, rng: Rng, surprise?: SurpriseId): Wish[] {
   const kids = w.children.filter((c) => c.fam !== OWN || c.age < GROWN_UP);
   const c = pick(rng, kids);
   const fav = favourite(c.pers, c.age);
   const ages = new Set(kids.map((k) => k.age));
   // Only ask for things today's children can do.
   const acts = WISH_ACTS.filter(([a]) => [...ages].some((age) => allowed(age).includes(a)));
-  const [act, say] = pick(rng, acts);
-  const n = 2 + Math.floor(rng() * 2);
+  let [act, say] = pick(rng, acts);
+  let n = 2 + Math.floor(rng() * 2);
+  // A special day asks for its own thing, when today's children can do it.
+  const sp = surprise && SURPRISES[surprise].wish;
+  if (sp && [...ages].some((age) => allowed(age).includes(sp[0]))) [act, say, n] = [sp[0], () => sp[1], 3];
   return [
     { kind: 'favourite', text: `Give ${c.name} ${ACTS[fav].want.replace(/^to /, 'time to ')}`, target: 1, got: 0, kid: c.id, act: fav },
     rng() < 0.5 ? { kind: 'laughs', text: 'Make 5 children laugh', target: 5, got: 0 } : { kind: 'happyHome', text: 'Send 3 children home with full hearts', target: 3, got: 0 },
@@ -62,7 +69,8 @@ export type Event =
   | { type: 'selfplay'; kid: number; act: Act }
   | { type: 'wander' | 'doze' | 'startCry'; kid: number }
   | { type: 'chat'; kid: number; with: number };
-export type ActResult = { ok: false; why: 'asleep' | 'tooLittle' | 'tooBig' } | { ok: true; matched: boolean; fav: boolean; wishes: Wish[] };
+/** `bondUp`: the friendship star this just earned with Isabelle, or 0. */
+export type ActResult = { ok: false; why: 'asleep' | 'tooLittle' | 'tooBig' } | { ok: true; matched: boolean; fav: boolean; wishes: Wish[]; bondUp: number };
 export type Mood = 'asleep' | 'laugh' | 'cry' | 'want' | 'happy';
 
 const between = (rng: Rng, a: number, b: number) => a + Math.floor(rng() * (b - a + 1));
@@ -89,13 +97,13 @@ const dayKid = (c: Child): DayKid => ({
 });
 
 /** Day 1 everyone comes at 8 and stays late; after that drop-offs and pick-ups spread across the day. */
-export function newDay(w: World, rng: Rng = Math.random): DayState {
+export function newDay(w: World, rng: Rng = Math.random, surprise?: SurpriseId): DayState {
   const fams = w.families.map((f, i): DayFam => ({
     id: f.id, parent: rng() < 0.5 ? 'mum' : 'dad', state: 'coming',
     arrive: w.day === 1 ? OPEN : pick(rng, [480, 480, 480, 540, 600]),
     leave: w.day === 1 ? [960, 1020][i % 2] : pick(rng, [840, 900, 960, 1020, 1020]),
   }));
-  return { day: w.day, t: OPEN, fams, kids: w.children.map(dayKid), queue: [], next: { emily: OPEN + 30 }, wishes: makeWishes(w, rng) };
+  return { day: w.day, t: OPEN, fams, kids: w.children.map(dayKid), queue: [], next: { emily: OPEN + 30 }, wishes: makeWishes(w, rng, surprise), surprise };
 }
 
 export class Day {
@@ -212,7 +220,11 @@ export class Day {
     }
     const friends = this.present().filter((o) => o !== k && o.floor === k.floor && !this.asleep(o) && !this.busy(o) && this.child(o.id).age >= 2);
     if (c.age >= 2 && friends.length && this.rng() < 0.55) {
-      const friend = pick(this.rng, friends);
+      // Best friends seek each other out.
+      const best = bestFriend(this.w, c);
+      const bf = best && friends.find((o) => o.id === best.id);
+      const friend = bf && this.rng() < 0.6 ? bf : pick(this.rng, friends);
+      chatted(c, this.child(friend.id));
       // A chat lasts a little while: both stay together for it.
       k.m.love = Math.max(0, k.m.love - 10);
       friend.m.love = Math.max(0, friend.m.love - 10);
@@ -271,7 +283,11 @@ export class Day {
     const fav = this.meet(k, act, matched);
     const wishes = this.wishProgress((w) =>
       (w.kind === 'favourite' && w.kid === kidId && w.act === act) || (w.kind === 'laughs' && matched) || (w.kind === 'act' && w.act === act));
-    return { ok: true, matched, fav, wishes };
+    // Only what Isabelle does herself makes a child like her more.
+    const before = bondLevel(c);
+    c.bond = (c.bond ?? 0) + (fav ? 2 : 1);
+    if (fav) c.favFound = true;
+    return { ok: true, matched, fav, wishes, bondUp: bondLevel(c) > before ? bondLevel(c) : 0 };
   }
 
   /** Count progress on the wishes that `hit` matches; returns the ones just finished. */
@@ -301,20 +317,46 @@ export class Day {
     if (f.leave <= this.s.t) { f.state = 'pick'; this.s.queue.push(famId); }
   }
 
-  /** Home time. The family remembers how the day went, for tomorrow's chat. Returns wishes this finished. */
-  pickUp(famId: number): Wish[] {
+  /** At pick-up a child may take their best friend home to play: a friend who is here, awake, and whose own grown-up
+   *  hasn't come yet. About one pick-up in three. */
+  playdate(famId: number): { kid: number; friend: number } | null {
+    if (this.rng() >= 0.35) return null;
+    for (const id of this.w.families.find((x) => x.id === famId)!.kids) {
+      const b = bestFriend(this.w, this.child(id));
+      if (!b || b.fam === OWN || b.fam === famId) continue;
+      const k = this.kid(b.id);
+      if (k.here && !this.asleep(k) && this.fam(b.fam).state === 'in') return { kid: id, friend: b.id };
+    }
+    return null;
+  }
+
+  /** One child goes home: their family remembers how the day went, for tomorrow's chat, and their hearts count toward the
+   *  nursery's level. */
+  private goHome(id: number): Wish[] {
+    const k = this.kid(id);
+    const fam = this.w.families.find((x) => x.id === this.child(id).fam)!;
+    if (fam.last?.day !== this.s.day) fam.last = { day: this.s.day, hearts: {} };
+    fam.last.hearts[id] = k.hearts;
+    this.w.stars += Math.round(k.hearts);
+    k.here = false;
+    k.sleepUntil = 0;
+    k.busyUntil = 0;
+    return k.hearts >= 4.5 ? this.wishProgress((w) => w.kind === 'happyHome') : [];
+  }
+
+  /** Home time, with any best friends going too. A friend's family with nobody left here doesn't need to come.
+   *  Returns wishes this finished. */
+  pickUp(famId: number, guests: number[] = []): Wish[] {
     let wishes: Wish[] = [];
     this.s.queue = this.s.queue.filter((id) => id !== famId);
     this.fam(famId).state = 'gone';
-    const fam = this.w.families.find((x) => x.id === famId)!;
-    fam.last = { day: this.s.day, hearts: {} };
-    for (const id of fam.kids) {
-      const k = this.kid(id);
-      fam.last.hearts[id] = k.hearts;
-      k.here = false;
-      k.sleepUntil = 0;
-      k.busyUntil = 0;
-      if (k.hearts >= 4.5) wishes = wishes.concat(this.wishProgress((w) => w.kind === 'happyHome'));
+    for (const id of [...this.w.families.find((x) => x.id === famId)!.kids, ...guests]) wishes = wishes.concat(this.goHome(id));
+    for (const id of guests) {
+      const f = this.fam(this.child(id).fam);
+      if (f.state !== 'gone' && this.w.families.find((x) => x.id === f.id)!.kids.every((kid) => !this.kid(kid).here)) {
+        f.state = 'gone';
+        this.s.queue = this.s.queue.filter((q) => q !== f.id);
+      }
     }
     return wishes;
   }
